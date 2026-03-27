@@ -1,0 +1,51 @@
+{
+  "name": "enforcement-tracker",
+  "version": "1.0.0",
+  "dependencies": {
+    "@neondatabase/serverless": "^0.9.0"
+  }
+}
+```
+→ Commit changes
+
+---
+
+### ไฟล์ที่ 3: `netlify/functions/cases.js`
+**Add file → Create new file** → ชื่อไฟล์พิมพ์ว่า:
+```
+netlify/functions/cases.js
+```
+(GitHub จะสร้างโฟลเดอร์ให้อัตโนมัติเมื่อพิมพ์ `/`)
+
+วางโค้ดจากไฟล์ `cases.js` ที่ผมให้ไปก่อนหน้า → Commit changes
+
+---
+
+### ไฟล์ที่ 4: `public/index.html`
+**Add file → Create new file** → ชื่อ:
+```
+public/index.html
+```
+วางโค้ด HTML จากไฟล์ที่ผมให้ → Commit changes
+
+---
+
+## ขั้นที่ 3 — ตรวจ repo
+
+หลังทำเสร็จ root ของ repo ควรหน้าตาแบบนี้:
+```
+📁 netlify/functions/cases.js
+📁 public/index.html
+📄 netlify.toml
+📄 package.json
+```
+
+---
+
+## ขั้นที่ 4 — ดู Netlify deploy log ใหม่
+
+Netlify จะ auto-deploy ทันทีที่ commit ครับ ไปดู deploy log แล้วควรเห็น:
+```
+Config file: netlify.toml
+Bundling functions
+  ✓ cases
