@@ -5,35 +5,3 @@
     "@neondatabase/serverless": "^0.9.0"
   }
 }
-```
-- คลิก **Commit changes**
-
----
-
-**ไฟล์ที่ 3** — คลิก **"Add file"** → **"Create new file"**
-- ชื่อไฟล์ใส่ (สำคัญมาก ต้องมี `/` ด้วย): `netlify/functions/cases.js`
-- GitHub จะสร้างโฟลเดอร์ให้อัตโนมัติ
-- วางเนื้อหาจากไฟล์ `cases.js` ที่มีอยู่ใน repo (copy มาวาง)
-- คลิก **Commit changes**
-
----
-
-**ไฟล์ที่ 4** — คลิก **"Add file"** → **"Create new file"**
-- ชื่อไฟล์ใส่: `public/index.html`
-- วางเนื้อหา `index.html` จากไฟล์ที่ผมสร้างให้ (ไฟล์ใหญ่ครับ ต้อง download จาก zip แล้ว copy)
-- คลิก **Commit changes**
-
----
-
-### 3) หลัง commit ครบ โครงสร้างควรเป็น
-```
-📄 netlify.toml
-📄 package.json
-📁 netlify/functions/cases.js
-📁 public/index.html
-```
-
-Netlify จะ auto-deploy ให้เองครับ แล้วดู deploy log ใหม่จะเห็น:
-```
-Config file: netlify.toml
-Bundling functions ✓ cases
