@@ -96,6 +96,7 @@ td.amount.recv{color:var(--green2);}
 .s03{background:rgba(245,158,11,.1);color:#fbbf24;border:1px solid rgba(245,158,11,.3);}
 .s04{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3);}
 .s05{background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3);}
+.s06{background:rgba(107,114,128,.15);color:#9ca3af;border:1px solid rgba(107,114,128,.3);}
 .rb{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600;}
 .rb-got{background:rgba(16,185,129,.15);color:var(--green2);}
 .rb-not{background:rgba(239,68,68,.15);color:var(--red2);}
@@ -197,7 +198,7 @@ td.amount.recv{color:var(--green2);}
 
 <div class="header">
   <div class="header-top">
-    <div class="badge">LUCKY LEASING</div>
+    <div class="badge">LEGAL</div>
     <h1>ระบบติดตาม<span>งานบังคับคดี</span></h1>
     <div class="header-right">
       <div class="sync-status loading" id="syncStatus">⟳ กำลังโหลด...</div>
@@ -211,11 +212,12 @@ td.amount.recv{color:var(--green2);}
 
 <div class="toolbar">
   <div class="search-wrap"><input type="text" id="searchInput" placeholder="ค้นหาเลขที่งาน, สำนวน, ผู้รับผิดชอบ..."></div>
-  <select id="filterStage"><option value="">ทุกหมวด</option><option value="02">02 สืบทรัพย์</option><option value="03">03 เตรียมบังคับ</option><option value="04">04 บังคับคดี</option><option value="05">05 ประนอมหนี้</option></select>
+  <select id="filterStage"><option value="">ทุกหมวด</option><option value="02">02 สืบทรัพย์</option><option value="03">03 เตรียมบังคับ</option><option value="04">04 บังคับคดี</option><option value="05">05 ประนอมหนี้</option><option value="06">06 ปิดงาน</option></select>
   <select id="filterResult"><option value="">ทุกผลอายัด</option><option value="ได้เงิน">✅ ได้เงิน</option><option value="ไม่ได้เงิน">❌ ไม่ได้เงิน</option><option value="รอผล">⏳ รอผล</option></select>
   <select id="filterOwner"><option value="">ทุกคน</option><option value="ไมค์">ไมค์</option><option value="ต่าย">ต่าย</option><option value="ก้อย">ก้อย</option></select>
   <select id="filterDue"><option value="">ทุก Due Date</option><option value="overdue">🔴 เกินกำหนด</option><option value="today">🟡 วันนี้</option><option value="soon">🔵 ใน 7 วัน</option></select>
   <select id="filterStatus"><option value="">ทุกสถานะ</option><option value="pending">⏳ Pending</option><option value="inprogress">🔵 In Progress</option><option value="done">✅ Done</option><option value="stuck">🔴 Stuck</option></select>
+  <select id="filterAmount"><option value="">ทุกยอด</option><option value="0-10000">฿0–10K</option><option value="10000-30000">฿10K–30K</option><option value="30000-100000">฿30K–100K</option><option value="100000-99999999">฿100K+</option></select>
   <div class="count-badge">แสดง <span id="countDisplay">0</span> รายการ</div>
 </div>
 
@@ -233,7 +235,7 @@ td.amount.recv{color:var(--green2);}
       <th onclick="sortBy('id')">เลขที่งาน ↕</th>
       <th>สำนวน</th><th>ผู้รับผิดชอบ</th>
       <th onclick="sortBy('hmvad')">หมวด ↕</th>
-      <th>Action ถัดไป</th><th>สถานะ</th>
+      <th>Action</th><th>สถานะ</th>
       <th onclick="sortBy('due_date')">Due Date ↕</th>
       <th onclick="sortBy('amount')">ยอดฟ้อง ↕</th>
       <th>เงินที่ได้</th><th>ผลอายัด</th><th>Edit</th>
@@ -242,6 +244,7 @@ td.amount.recv{color:var(--green2);}
   </table></div></div>
   <div id="viewKanban" class="hidden"><div class="kanban" id="kanbanBoard"></div></div>
   <div id="viewAction" class="hidden"><div id="recPanel"></div><div class="action-plan" id="actionPlan"></div></div>
+  <div id="viewAdmin" class="hidden"></div>
 </div>
 
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
@@ -258,20 +261,24 @@ let filtered = [];
 let sortCol = 'priority', sortDir = -1, currentView = 'table';
 
 // ══ API ══
+function getToken() { return localStorage.getItem('session_token')||''; }
+function getCurrentUser() { try{ return JSON.parse(localStorage.getItem('current_user')||'null'); }catch(_){return null;} }
+
 async function apiFetch(path, opts={}) {
   const r = await fetch(API + path, {
-    headers: {'Content-Type':'application/json'},
+    headers: {'Content-Type':'application/json', 'X-Session-Token': getToken()},
     ...opts,
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
+  if (r.status === 401) { showLoginScreen(); return null; }
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
 // ══ HELPERS ══
 const fmt = n => (!n||n===0) ? '-' : new Intl.NumberFormat('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n);
-function stageClass(s){ const m={'02':'s02','03':'s03','04':'s04','05':'s05'}; return m[(s||'').substring(0,2)]||''; }
-function stageLabel(s){ const m={'02สืบทรัพย์':'สืบทรัพย์','03เตรียมบังคับคดี':'เตรียมบังคับ','04บังคับคดี':'บังคับคดี','05ประนอมหนี้':'ประนอมหนี้'}; return m[s]||(s||'').replace(/^\d+/,'').trim(); }
+function stageClass(s){ const m={'02':'s02','03':'s03','04':'s04','05':'s05','06':'s06'}; return m[(s||'').substring(0,2)]||''; }
+function stageLabel(s){ const m={'02สืบทรัพย์':'สืบทรัพย์','03เตรียมบังคับคดี':'เตรียมบังคับ','04บังคับคดี':'บังคับคดี','05ประนอมหนี้':'ประนอมหนี้','06ปิดงาน':'ปิดงาน'}; return m[s]||(s||'').replace(/^\d+/,'').trim(); }
 function resultBadge(r){ if(r==='ได้เงิน') return '<span class="rb rb-got">✅ ได้เงิน</span>'; if(r&&r.includes('ไม่ได้เงิน')) return '<span class="rb rb-not">❌ ไม่ได้เงิน</span>'; if(r==='รอผล') return '<span class="rb rb-wait">⏳ รอผล</span>'; return '<span class="rb-none">—</span>'; }
 function statusBadge(s){ const m={pending:'<span class="sb sb-pending">⏳ Pending</span>',inprogress:'<span class="sb sb-inprogress">🔵 In Progress</span>',done:'<span class="sb sb-done">✅ Done</span>',stuck:'<span class="sb sb-stuck">🔴 Stuck</span>'}; return m[s]||'<span class="rb-none">—</span>'; }
 function dueBadge(due){
@@ -322,11 +329,19 @@ function buildQueryString() {
   if(owner) p.set('owner', owner);
   if(due) p.set('due', due);
   if(status) p.set('status', status);
+  const amount = document.getElementById('filterAmount')?.value;
+  if(amount) p.set('amount', amount);
   return p.toString();
 }
 
 function applyLocalFilters() {
-  let sortedFiltered = [...ALL];
+  const amountFilter = document.getElementById('filterAmount')?.value;
+  let sortedFiltered = [...ALL].filter(r => {
+    if (!amountFilter) return true;
+    const [min, max] = amountFilter.split('-').map(Number);
+    const amt = parseFloat(r.amount) || 0;
+    return amt >= min && amt <= max;
+  });
   sortData(sortedFiltered);
   filtered = sortedFiltered;
   document.getElementById('countDisplay').textContent = filtered.length;
@@ -371,8 +386,8 @@ function renderTable() {
 // ══ KANBAN ══
 function renderKanban() {
   const board = document.getElementById('kanbanBoard');
-  const stages = ['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้'];
-  const names = {'02สืบทรัพย์':'02 สืบทรัพย์','03เตรียมบังคับคดี':'03 เตรียมบังคับ','04บังคับคดี':'04 บังคับคดี','05ประนอมหนี้':'05 ประนอมหนี้'};
+  const stages = ['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้','06ปิดงาน'];
+  const names = {'02สืบทรัพย์':'02 สืบทรัพย์','03เตรียมบังคับคดี':'03 เตรียมบังคับ','04บังคับคดี':'04 บังคับคดี','05ประนอมหนี้':'05 ประนอมหนี้','06ปิดงาน':'06 ปิดงาน'};
   board.innerHTML = stages.map(s => {
     const cards = filtered.filter(r=>r.hmvad===s);
     return `<div class="kanban-col">
@@ -503,8 +518,9 @@ function openModal(id) {
 // ══ EDIT MODAL ══
 function openEditModal(id) {
   const r = ALL.find(x=>x.id===id); if(!r) return;
-  const stageOpts=['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้'].map(s=>`<option value="${s}" ${r.hmvad===s?'selected':''}>${s}</option>`).join('');
-  const actionOpts=['ตรวจรับรองบัญชี/ขอรับเงิน','บันทึกผลการอายัด','ยื่นอายัดทรัพย์','บันทึกผลการยื่นอายัด','ตรวจอายัดซ้ำ','ออกหมายตั้ง','ส่งคำบังคับ','บันทึกผลส่งคำบังคับ','สืบทรัพย์ใหม่','สืบทรัพย์ที่ดิน','สืบทรัพย์เงินเดือน','สืบทรัพย์บัญชี','ยื่นขอยึดทรัพย์','บันทึกผลขายทอดตลาด','ประนอมหนี้'].map(a=>`<option value="${a}" ${r.action===a?'selected':''}>${a}</option>`).join('');
+  const stageOpts=['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้','06ปิดงาน'].map(s=>`<option value="${s}" ${r.hmvad===s?'selected':''}>${s}</option>`).join('');
+  const ACTION_LIST=['ตรวจรับรองบัญชี/ขอรับเงิน','บันทึกผลการอายัด','ยื่นอายัดทรัพย์','บันทึกผลการยื่นอายัด','ตรวจอายัดซ้ำ','ออกหมายตั้ง','ส่งคำบังคับ','บันทึกผลส่งคำบังคับ','สืบทรัพย์ใหม่','สืบทรัพย์ที่ดิน','สืบทรัพย์เงินเดือน','สืบทรัพย์บัญชี','ยื่นขอยึดทรัพย์','บันทึกผลขายทอดตลาด','ประนอมหนี้','ปิดงาน'];
+  const actionDatalist = ACTION_LIST.map(a=>`<option value="${a}">`).join('');
   const resultOpts=['ได้เงิน','ไม่ได้เงิน','รอผล',''].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v||'— ยังไม่อายัด'}</option>`).join('');
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-header">
@@ -516,9 +532,18 @@ function openEditModal(id) {
         <div class="sec-title">สถานะและ Action</div>
         <div class="g2">
           <div class="form-row"><div class="form-label">หมวด</div><select class="form-select" id="e_hmvad">${stageOpts}</select></div>
-          <div class="form-row"><div class="form-label">Action ถัดไป</div><select class="form-select" id="e_action">${actionOpts}</select></div>
+          <div class="form-row"><div class="form-label">Action</div>
+            <datalist id="actionDatalist">${actionDatalist}</datalist>
+            <input list="actionDatalist" class="form-input" id="e_action" value="${r.action||''}" placeholder="เลือกหรือพิมพ์ action ใหม่..."></div>
         </div>
-        <div class="g3">
+        <div class="form-row"><div class="form-label">แก้ไขโดย *</div>
+        <select class="form-select" id="e_changed_by">
+          <option value="ไมค์">ไมค์</option>
+          <option value="ต่าย">ต่าย</option>
+          <option value="ก้อย">ก้อย</option>
+        </select>
+      </div>
+      <div class="g3">
           <div class="form-row"><div class="form-label">สถานะ Action</div>
             <select class="form-select" id="e_status">
               <option value="" ${!r.action_status?'selected':''}>— ไม่ระบุ</option>
@@ -548,6 +573,7 @@ function openEditModal(id) {
 }
 
 async function saveEdit(id) {
+  const changedByEl = document.getElementById('e_changed_by');
   const patch = {
     hmvad: document.getElementById('e_hmvad').value,
     action: document.getElementById('e_action').value,
@@ -556,6 +582,7 @@ async function saveEdit(id) {
     result: document.getElementById('e_result').value,
     money_recv: parseFloat(document.getElementById('e_money').value)||0,
     amount: parseFloat(document.getElementById('e_amount').value)||0,
+    changed_by: (getCurrentUser() ? getCurrentUser().display_name : 'user'),
   };
   try {
     await apiFetch('/'+id, {method:'PUT', body:patch});
@@ -580,7 +607,8 @@ async function saveNote(caseId) {
   const inp = document.getElementById('noteInput_'+caseId);
   if(!inp||!inp.value.trim()) return;
   try {
-    const note = await apiFetch('/'+caseId+'/notes', {method:'POST', body:{text:inp.value.trim()}});
+    const r2 = ALL.find(x=>x.id===caseId);
+    const note = await apiFetch('/'+caseId+'/notes', {method:'POST', body:{text:inp.value.trim(), changed_by: r2 ? r2.owner : 'user'}});
     const r = ALL.find(x=>x.id===caseId);
     if(r){ if(!r.notes) r.notes=[]; r.notes.unshift({id:note.id,text:note.note_text,time:note.created_at}); }
     inp.value='';
@@ -604,7 +632,7 @@ async function delNote(caseId, noteId) {
 function showAddForm() {
   const sec = document.getElementById('addFormSection');
   sec.classList.remove('hidden');
-  const stageOpts=['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้'].map(s=>`<option value="${s}">${s}</option>`).join('');
+  const stageOpts=['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้','06ปิดงาน'].map(s=>`<option value="${s}">${s}</option>`).join('');
   const actionOpts=['ตรวจรับรองบัญชี/ขอรับเงิน','บันทึกผลการอายัด','ยื่นอายัดทรัพย์','ตรวจอายัดซ้ำ','ออกหมายตั้ง','ส่งคำบังคับ','สืบทรัพย์ใหม่','สืบทรัพย์ที่ดิน','สืบทรัพย์เงินเดือน','สืบทรัพย์บัญชี','ยื่นขอยึดทรัพย์','ประนอมหนี้'].map(a=>`<option value="${a}">${a}</option>`).join('');
   sec.innerHTML=`
     <div class="add-form">
@@ -670,7 +698,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
 
 let searchTimer;
 document.getElementById('searchInput').addEventListener('input', ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(loadAll,400); });
-['filterStage','filterResult','filterOwner','filterDue','filterStatus'].forEach(id=>{ document.getElementById(id).addEventListener('change', loadAll); });
+['filterStage','filterResult','filterOwner','filterDue','filterStatus','filterAmount'].forEach(id=>{ document.getElementById(id)?.addEventListener('change', loadAll); });
 
 function exportCSV(){
   const h=['เลขที่งาน','สำนวน','ผู้รับผิดชอบ','หมวด','Action','สถานะ','Due Date','ยอดฟ้อง','เงินที่ได้','ผลอายัด'];
@@ -680,7 +708,6 @@ function exportCSV(){
 }
 
 // ══ INIT ══
-loadAll();
 </script>
 
 <!-- SETUP WIZARD (แสดงเฉพาะครั้งแรก ถ้า DB ยังไม่ได้ init) -->
@@ -712,6 +739,418 @@ async function resetDatabase() {
   // ทำผ่าน Neon console โดยตรงแทน
   alert('กรุณาไป Neon console แล้วรัน: TRUNCATE enforcement_cases CASCADE;');
 }
+</script>
+
+<style>
+/* ── AUTH STYLES ── */
+.auth-overlay{position:fixed;inset:0;background:var(--bg);z-index:500;display:flex;align-items:center;justify-content:center;}
+.auth-box{background:var(--bg2);border:1px solid var(--border2);border-radius:14px;padding:36px 32px;width:100%;max-width:400px;animation:up .3s ease;}
+.auth-logo{text-align:center;margin-bottom:24px;}
+.auth-logo-badge{background:linear-gradient(135deg,var(--gold),#d97706);color:#000;font-family:var(--mono);font-weight:700;font-size:12px;padding:5px 14px;border-radius:5px;letter-spacing:1px;display:inline-block;margin-bottom:10px;}
+.auth-title{font-size:20px;font-weight:700;color:var(--text);text-align:center;}
+.auth-sub{font-size:13px;color:var(--text3);text-align:center;margin-top:4px;}
+.auth-form{margin-top:24px;display:flex;flex-direction:column;gap:14px;}
+.auth-error{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:9px 12px;font-size:13px;color:var(--red2);display:none;}
+.auth-error.show{display:block;}
+.auth-btn{width:100%;padding:10px;border-radius:7px;border:none;background:var(--accent);color:#fff;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .2s;}
+.auth-btn:hover{background:#2563eb;}
+.auth-btn:disabled{background:var(--border2);cursor:not-allowed;}
+.user-chip{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:20px;padding:5px 12px 5px 8px;cursor:pointer;}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+.user-name{font-size:12px;font-weight:600;color:var(--text2);}
+.user-role{font-size:10px;color:var(--text3);}
+.dropdown-menu{position:absolute;top:calc(100% + 8px);right:0;background:var(--bg2);border:1px solid var(--border2);border-radius:8px;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:200;overflow:hidden;display:none;}
+.dropdown-menu.open{display:block;}
+.dropdown-item{padding:10px 14px;font-size:13px;color:var(--text2);cursor:pointer;display:flex;align-items:center;gap:8px;}
+.dropdown-item:hover{background:var(--bg3);color:var(--text);}
+.dropdown-divider{height:1px;background:var(--border);margin:4px 0;}
+.user-wrap{position:relative;}
+.online-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s infinite;margin-right:2px;}
+.online-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--green2);font-family:var(--mono);}
+.online-panel{background:var(--bg3);border:1px solid rgba(16,185,129,.2);border-radius:8px;padding:12px 14px;margin-bottom:14px;}
+.online-title{font-size:12px;font-weight:600;color:var(--green2);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.online-list{display:flex;gap:8px;flex-wrap:wrap;}
+.online-user{background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.25);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--green2);display:flex;align-items:center;gap:5px;}
+
+/* Admin Panel */
+.admin-panel{background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:20px;margin-bottom:16px;}
+.admin-title{font-size:15px;font-weight:700;color:var(--gold2);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.user-table{width:100%;border-collapse:collapse;font-size:13px;}
+.user-table th{padding:8px 10px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border2);}
+.user-table td{padding:9px 10px;border-bottom:1px solid var(--border);color:var(--text2);}
+.user-table tr:last-child td{border-bottom:none;}
+.badge-admin{background:rgba(245,158,11,.15);color:var(--gold2);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.badge-user{background:rgba(59,130,246,.15);color:var(--accent2);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.badge-locked{background:rgba(239,68,68,.15);color:var(--red2);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;}
+.badge-inactive{background:rgba(107,114,128,.15);color:var(--text3);padding:2px 8px;border-radius:4px;font-size:11px;}
+.action-btns{display:flex;gap:5px;flex-wrap:wrap;}
+
+/* Change password modal */
+.cp-form{display:flex;flex-direction:column;gap:12px;margin-top:12px;}
+</style>
+
+<script>
+// ══ AUTH SYSTEM ════════════════════════════════════════════════════════════
+
+function showLoginScreen(msg) {
+  // Hide main app
+  document.querySelector('.header').style.display = 'none';
+  document.querySelector('.toolbar') && (document.querySelector('.toolbar').style.display = 'none');
+  document.querySelector('.view-tabs') && (document.querySelector('.view-tabs').style.display = 'none');
+  document.querySelector('.main').style.display = 'none';
+
+  let overlay = document.getElementById('authOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'authOverlay';
+    overlay.className = 'auth-overlay';
+    document.body.appendChild(overlay);
+  }
+
+  overlay.innerHTML = `
+    <div class="auth-box">
+      <div class="auth-logo">
+        <div class="auth-logo-badge">LEGAL</div>
+        <div class="auth-title">ระบบติดตามงานบังคับคดี</div>
+        <div class="auth-sub">กรุณาเข้าสู่ระบบเพื่อใช้งาน</div>
+      </div>
+      <div class="auth-error" id="loginError">${msg||''}</div>
+      <div class="auth-form">
+        <div class="form-row">
+          <div class="form-label">Username</div>
+          <input class="form-input" id="loginUser" placeholder="ชื่อผู้ใช้" autocomplete="username">
+        </div>
+        <div class="form-row">
+          <div class="form-label">Password</div>
+          <input class="form-input" type="password" id="loginPass" placeholder="รหัสผ่าน" autocomplete="current-password">
+        </div>
+        <button class="auth-btn" id="loginBtn" onclick="doLogin()">เข้าสู่ระบบ</button>
+      </div>
+    </div>`;
+
+  if (msg) document.getElementById('loginError').classList.add('show');
+
+  document.getElementById('loginPass').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+  document.getElementById('loginUser').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('loginPass').focus();
+  });
+}
+
+function showChangePasswordModal(forced = false) {
+  const overlay = document.getElementById('modalOverlay');
+  document.getElementById('modalContent').innerHTML = `
+    <div class="modal-header">
+      <div>
+        <div class="modal-id">${forced ? '⚠️ ต้องเปลี่ยนรหัสผ่านก่อนใช้งาน' : '🔒 เปลี่ยนรหัสผ่าน'}</div>
+        <div class="modal-title">${forced ? 'กรุณาตั้งรหัสผ่านใหม่' : 'เปลี่ยนรหัสผ่าน'}</div>
+      </div>
+      ${!forced ? '<button class="modal-close" onclick="closeModal()">×</button>' : ''}
+    </div>
+    <div class="modal-body">
+      <div class="auth-error" id="cpError"></div>
+      <div class="cp-form">
+        <div class="form-row"><div class="form-label">รหัสผ่านเดิม</div><input type="password" class="form-input" id="cp_old" placeholder="รหัสผ่านเดิม"></div>
+        <div class="form-row"><div class="form-label">รหัสผ่านใหม่ (อย่างน้อย 8 ตัว)</div><input type="password" class="form-input" id="cp_new" placeholder="รหัสผ่านใหม่"></div>
+        <div class="form-row"><div class="form-label">ยืนยันรหัสผ่านใหม่</div><input type="password" class="form-input" id="cp_confirm" placeholder="ยืนยันรหัสผ่านใหม่"></div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="doChangePassword()">💾 บันทึกรหัสผ่านใหม่</button>
+        </div>
+      </div>
+    </div>`;
+  overlay.classList.add('open');
+}
+
+async function doLogin() {
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value;
+  if (!username || !password) { errEl.textContent = 'กรุณากรอก Username และ Password'; errEl.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = 'กำลังเข้าสู่ระบบ...';
+  try {
+    const res = await fetch(API + '/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      errEl.textContent = data.error || 'เข้าสู่ระบบไม่สำเร็จ';
+      errEl.classList.add('show');
+      btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+      return;
+    }
+    localStorage.setItem('session_token', data.token);
+    localStorage.setItem('current_user', JSON.stringify(data.user));
+    initApp(data.user);
+  } catch(e) {
+    errEl.textContent = 'เชื่อมต่อ server ไม่ได้: ' + e.message;
+    errEl.classList.add('show');
+    btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ';
+  }
+}
+
+async function doLogout() {
+  try { await apiFetch('/logout', {method:'POST'}); } catch(_){}
+  localStorage.removeItem('session_token');
+  localStorage.removeItem('current_user');
+  location.reload();
+}
+
+async function doChangePassword() {
+  const old_password = document.getElementById('cp_old').value;
+  const new_password = document.getElementById('cp_new').value;
+  const confirm = document.getElementById('cp_confirm').value;
+  const errEl = document.getElementById('cpError');
+  if (new_password !== confirm) { errEl.textContent = 'รหัสผ่านใหม่ไม่ตรงกัน'; errEl.classList.add('show'); return; }
+  if (new_password.length < 8) { errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร'; errEl.classList.add('show'); return; }
+  try {
+    const res = await apiFetch('/change-password', {method:'POST', body:{old_password, new_password}});
+    if (!res || !res.ok) { errEl.textContent = res?.error || 'เกิดข้อผิดพลาด'; errEl.classList.add('show'); return; }
+    const user = getCurrentUser();
+    if (user) { user.must_change_password = false; localStorage.setItem('current_user', JSON.stringify(user)); }
+    closeModal();
+    toast('✅ เปลี่ยนรหัสผ่านสำเร็จ');
+  } catch(e) { errEl.textContent = e.message; errEl.classList.add('show'); }
+}
+
+function toggleUserMenu() {
+  document.getElementById('userDropdown').classList.toggle('open');
+}
+
+document.addEventListener('click', e => {
+  const wrap = document.querySelector('.user-wrap');
+  if (wrap && !wrap.contains(e.target)) document.getElementById('userDropdown')?.classList.remove('open');
+});
+
+// ── ADMIN PANEL ─────────────────────────────────────────────────────────────
+async function showAdminPanel() {
+  document.getElementById('userDropdown').classList.remove('open');
+  setView('admin', null);
+}
+
+async function renderAdminPanel() {
+  const container = document.getElementById('viewAdmin');
+  if (!container) return;
+  container.innerHTML = '<div style="color:var(--text3);padding:20px">⏳ กำลังโหลด...</div>';
+
+  try {
+    const data = await apiFetch('/users');
+    if (!data) return;
+    const users = data.users || [];
+
+    container.innerHTML = `
+      <div class="admin-panel">
+        <div class="online-panel" id="onlinePanel">
+          <div class="online-title"><span class="online-dot"></span> ออนไลน์ขณะนี้ <span id="onlineCount" style="color:var(--text3)">(กำลังโหลด...)</span></div>
+          <div class="online-list" id="onlineList"></div>
+        </div>
+        <div class="admin-title">👥 จัดการผู้ใช้งาน</div>
+        <div class="btn-row" style="margin-bottom:14px">
+          <button class="btn btn-green btn-sm" onclick="showAddUserForm()">➕ เพิ่มผู้ใช้</button>
+        </div>
+        <div id="addUserForm" class="hidden" style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px;margin-bottom:14px">
+          <div class="g3">
+            <div class="form-row"><div class="form-label">Username</div><input class="form-input" id="nu_user" placeholder="mike"></div>
+            <div class="form-row"><div class="form-label">ชื่อที่แสดง</div><input class="form-input" id="nu_name" placeholder="ไมค์"></div>
+            <div class="form-row"><div class="form-label">Password เริ่มต้น</div><input type="password" class="form-input" id="nu_pass" placeholder="อย่างน้อย 8 ตัว"></div>
+          </div>
+          <div class="form-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:9px">
+            <div class="form-row"><div class="form-label">Role</div>
+              <select class="form-select" id="nu_role"><option value="user">User</option><option value="admin">Admin</option></select>
+            </div>
+          </div>
+          <div class="btn-row" style="margin-top:10px">
+            <button class="btn btn-primary btn-sm" onclick="doAddUser()">💾 บันทึก</button>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('addUserForm').classList.add('hidden')">ยกเลิก</button>
+          </div>
+        </div>
+        <table class="user-table">
+          <thead><tr><th>Username</th><th>ชื่อ</th><th>Role</th><th>สถานะ</th><th>Login ผิด</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${users.map(u => `
+              <tr>
+                <td><span style="font-family:var(--mono);font-size:12px">${u.username}</span></td>
+                <td>${u.display_name}</td>
+                <td>${u.role==='admin'?'<span class="badge-admin">Admin</span>':'<span class="badge-user">User</span>'}</td>
+                <td>${u.locked_until && new Date(u.locked_until)>new Date() ? '<span class="badge-locked">🔒 ล็อค</span>' : u.is_active ? '<span class="badge-user">✅ ใช้งาน</span>' : '<span class="badge-inactive">❌ ระงับ</span>'}</td>
+                <td style="font-family:var(--mono);color:${u.failed_attempts>=3?'var(--red2)':'var(--text3)'}">${u.failed_attempts}/5</td>
+                <td>
+                  <div class="action-btns">
+                    ${u.locked_until && new Date(u.locked_until)>new Date() ? `<button class="btn btn-ghost btn-sm" onclick="adminAction(${u.id},'unlock')">🔓 ปลด</button>` : ''}
+                    ${u.is_active ? `<button class="btn btn-ghost btn-sm" onclick="adminAction(${u.id},'deactivate')">⛔ ระงับ</button>` : `<button class="btn btn-ghost btn-sm" onclick="adminAction(${u.id},'activate')">✅ เปิด</button>`}
+                    <button class="btn btn-ghost btn-sm" onclick="adminAction(${u.id},'reset')">🔑 Reset PW</button>
+                  </div>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="admin-panel">
+        <div class="admin-title">📜 Log การแก้ไขล่าสุด</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadAdminLogs()">↻ โหลด Log</button>
+        <div id="adminLogsTable" style="margin-top:12px"></div>
+      </div>`;
+  } catch(e) { container.innerHTML = `<div style="color:var(--red2);padding:20px">Error: ${e.message}</div>`; }
+  // Load online users
+  loadOnlineUsers();
+}
+
+async function loadOnlineUsers() {
+  const data = await apiFetch('/online');
+  if (!data) return;
+  const online = data.online || [];
+  const countEl = document.getElementById('onlineCount');
+  const listEl  = document.getElementById('onlineList');
+  if (!countEl || !listEl) return;
+  countEl.textContent = `(${online.length} คน)`;
+  if (!online.length) {
+    listEl.innerHTML = '<span style="font-size:12px;color:var(--text3)">ไม่มีผู้ใช้ออนไลน์</span>';
+    return;
+  }
+  listEl.innerHTML = online.map(u => {
+    const mins = Math.round((Date.now() - new Date(u.last_seen)) / 60000);
+    const timeStr = mins < 1 ? 'เพิ่งใช้งาน' : `${mins} นาทีที่แล้ว`;
+    return `<div class="online-user">
+      <span class="online-dot" style="width:6px;height:6px"></span>
+      <strong>${u.display_name}</strong>
+      <span style="color:var(--text3);font-size:10px">${timeStr}</span>
+    </div>`;
+  }).join('');
+}
+
+async function loadAdminLogs() {
+  const el = document.getElementById('adminLogsTable');
+  if (!el) return;
+  el.innerHTML = '⏳ กำลังโหลด...';
+  const data = await apiFetch('/logs?limit=50');
+  if (!data) return;
+  const logs = data.logs || [];
+  if (!logs.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">ยังไม่มี log</div>'; return; }
+  el.innerHTML = `<table class="user-table">
+    <thead><tr><th>เวลา</th><th>เคส</th><th>ผู้แก้</th><th>ประเภท</th><th>Field</th><th>เดิม</th><th>ใหม่</th></tr></thead>
+    <tbody>${logs.map(l=>`<tr>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${new Date(l.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}</td>
+      <td style="font-family:var(--mono);font-size:11px">${l.case_id||''} ${l.sanuan?'('+l.sanuan+')':''}</td>
+      <td style="font-weight:600;color:var(--accent2)">${l.changed_by||''}</td>
+      <td><span style="font-size:11px;padding:1px 6px;border-radius:3px;background:rgba(59,130,246,.1);color:var(--accent2)">${l.action_type||''}</span></td>
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text3)">${l.field_name||''}</td>
+      <td style="font-size:12px;color:var(--red2)">${l.old_value||'—'}</td>
+      <td style="font-size:12px;color:var(--green2)">${l.new_value||'—'}</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+function showAddUserForm() { document.getElementById('addUserForm').classList.toggle('hidden'); }
+
+async function doAddUser() {
+  const username = document.getElementById('nu_user').value.trim();
+  const display_name = document.getElementById('nu_name').value.trim();
+  const password = document.getElementById('nu_pass').value;
+  const role = document.getElementById('nu_role').value;
+  if (!username || !password) { alert('กรุณากรอก Username และ Password'); return; }
+  const res = await apiFetch('/users', {method:'POST', body:{username,display_name:display_name||username,password,role}});
+  if (res?.ok) { toast('✅ เพิ่มผู้ใช้แล้ว'); renderAdminPanel(); }
+  else alert(res?.error || 'เกิดข้อผิดพลาด');
+}
+
+async function adminAction(userId, action) {
+  const labels = {unlock:'ปลดล็อค',deactivate:'ระงับ',activate:'เปิด',reset:'Reset รหัสผ่านเป็น Reset@1234'};
+  if (!confirm(`ต้องการ${labels[action]}ผู้ใช้นี้?`)) return;
+  const res = await apiFetch(`/users/${userId}/${action}`, {method:'POST', body:{}});
+  if (res?.ok) { toast('✅ ดำเนินการแล้ว'); renderAdminPanel(); }
+  else alert(res?.error || 'เกิดข้อผิดพลาด');
+}
+
+// ── OVERRIDE setView to handle admin ────────────────────────────────────────
+const _origSetView = setView;
+function setView(view, btn) {
+  if (view === 'admin') {
+    ['viewTable','viewKanban','viewAction'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    const va = document.getElementById('viewAdmin');
+    if (va) { va.classList.remove('hidden'); renderAdminPanel(); }
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    return;
+  }
+  const va = document.getElementById('viewAdmin');
+  if (va) va.classList.add('hidden');
+  _origSetView(view, btn);
+}
+
+// ── checkAuthAndInit ─────────────────────────────────────────────────────────
+async function checkAuthAndInit() {
+  const token = getToken();
+  if (!token) { showLoginScreen(); return; }
+  try {
+    const res = await fetch(API + '/me', { headers: {'X-Session-Token': token} });
+    if (res.status === 401) { showLoginScreen(); return; }
+    const data = await res.json();
+    const user = data.user;
+    localStorage.setItem('current_user', JSON.stringify(user));
+    initApp(user);
+  } catch(e) { showLoginScreen('เชื่อมต่อ server ไม่ได้'); }
+}
+
+function initApp(user) {
+  // Remove login overlay
+  document.getElementById('authOverlay')?.remove();
+
+  // Show main app
+  document.querySelector('.header').style.display = '';
+  document.querySelector('.toolbar') && (document.querySelector('.toolbar').style.display = '');
+  document.querySelector('.view-tabs') && (document.querySelector('.view-tabs').style.display = '');
+  document.querySelector('.main').style.display = '';
+
+  // Update header with user chip
+  const headerRight = document.querySelector('.header-right');
+  if (headerRight) {
+    const initials = user.display_name.substring(0,2).toUpperCase();
+    const chip = document.createElement('div');
+    chip.className = 'user-wrap';
+    chip.innerHTML = `
+      <div class="user-chip" onclick="toggleUserMenu()">
+        <div class="user-avatar" style="position:relative">
+          ${initials}
+          <span style="position:absolute;bottom:-1px;right:-1px;width:8px;height:8px;border-radius:50%;background:var(--green);border:2px solid var(--bg2)"></span>
+        </div>
+        <div><div class="user-name">${user.display_name}</div><div class="user-role">${user.role==='admin'?'⚙️ Admin':'👤 User'}</div></div>
+        <span style="font-size:10px;color:var(--text3)">▾</span>
+      </div>
+      <div class="dropdown-menu" id="userDropdown">
+        <div class="dropdown-item" onclick="showChangePasswordModal(false)">🔒 เปลี่ยนรหัสผ่าน</div>
+        ${user.role==='admin'?'<div class="dropdown-item" onclick="showAdminPanel()">👥 จัดการผู้ใช้</div>':''}
+        <div class="dropdown-divider"></div>
+        <div class="dropdown-item" onclick="doLogout()" style="color:var(--red2)">🚪 ออกจากระบบ</div>
+      </div>`;
+    headerRight.prepend(chip);
+  }
+
+  // Add admin tab if admin
+  if (user.role === 'admin') {
+    const tabs = document.querySelector('.view-tabs');
+    if (tabs && !document.querySelector('[data-admin-tab]')) {
+      const adminTab = document.createElement('button');
+      adminTab.className = 'tab-btn';
+      adminTab.setAttribute('data-admin-tab','1');
+      adminTab.textContent = '👥 Admin';
+      adminTab.onclick = function(){ setView('admin', this); };
+      tabs.appendChild(adminTab);
+    }
+  }
+
+  // If must change password - show modal
+  if (user.must_change_password) {
+    setTimeout(() => showChangePasswordModal(true), 500);
+  }
+
+  // Load data
+  loadAll();
+}
+
+checkAuthAndInit();
 </script>
 </body>
 </html>
