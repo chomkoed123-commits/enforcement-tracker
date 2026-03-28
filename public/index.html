@@ -114,7 +114,7 @@ td.amount.recv{color:var(--green2);}
 .due-ok{background:rgba(16,185,129,.1);color:var(--green2);border:1px solid rgba(16,185,129,.2);}
 
 /* KANBAN */
-.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:start;}
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;align-items:start;}
 .kanban-col{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
 .col-header{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .col-title{font-size:12px;font-weight:600;}
@@ -336,8 +336,12 @@ function buildQueryString() {
   if(owner) p.set('owner', owner);
   if(due) p.set('due', due);
   if(status) p.set('status', status);
-  p.set('page', currentPage);
-  p.set('limit', PAGE_SIZE);
+  if (currentView === 'table') {
+    p.set('page', currentPage);
+    p.set('limit', PAGE_SIZE);
+  } else {
+    p.set('limit', 9999);
+  }
   return p.toString();
 }
 
@@ -734,7 +738,18 @@ async function addCase() {
 // ══ SORT / FILTER ══
 function sortBy(col){ if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=-1;} applyLocalFilters(); }
 function sortData(arr){ arr.sort((a,b)=>{ let va=a[sortCol],vb=b[sortCol]; if(!va&&!vb) return 0; if(!va) return 1; if(!vb) return -1; if(typeof va==='number'||!isNaN(parseFloat(va))) return(parseFloat(va)-parseFloat(vb))*sortDir; return String(va).localeCompare(String(vb),'th')*sortDir; }); }
-function setView(v,btn){ currentView=v; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); const va=document.getElementById('viewAdmin'); if(v==='admin'){ ['viewTable','viewKanban','viewAction'].forEach(id=>document.getElementById(id)?.classList.add('hidden')); if(va){va.classList.remove('hidden');renderAdminPanel();} return; } if(va) va.classList.add('hidden'); ['viewTable','viewKanban','viewAction'].forEach(id=>{ document.getElementById(id).classList.toggle('hidden',!id.includes(v==='table'?'Table':v==='kanban'?'Kanban':'Action')); }); renderCurrent(); }
+function setView(v,btn){
+  const prev=currentView; currentView=v;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  const va=document.getElementById('viewAdmin');
+  if(v==='admin'){ ['viewTable','viewKanban','viewAction'].forEach(id=>document.getElementById(id)?.classList.add('hidden')); if(va){va.classList.remove('hidden');renderAdminPanel();} return; }
+  if(va) va.classList.add('hidden');
+  ['viewTable','viewKanban','viewAction'].forEach(id=>{ document.getElementById(id).classList.toggle('hidden',!id.includes(v==='table'?'Table':v==='kanban'?'Kanban':'Action')); });
+  // kanban/action need all data — reload if we were on paginated table view
+  if((v==='kanban'||v==='action') && prev==='table') { loadAll(); return; }
+  renderCurrent();
+}
 function renderCurrent(){ if(currentView==='table') renderTable(); else if(currentView==='kanban') renderKanban(); else renderActionPlan(); }
 function closeModal(e){ if(!e||e.target===document.getElementById('modalOverlay')) document.getElementById('modalOverlay').classList.remove('open'); }
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
