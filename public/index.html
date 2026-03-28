@@ -294,7 +294,6 @@ async function loadAll() {
   setSyncStatus('loading','⟳ กำลังโหลด...');
   try {
     const qs = buildQueryString();
-const qs = buildQueryString();
     const [casesRes, statsRes] = await Promise.all([
       apiFetch('/?' + qs),
       apiFetch('/stats')
