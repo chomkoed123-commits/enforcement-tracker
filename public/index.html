@@ -250,7 +250,7 @@ td.amount.recv{color:var(--green2);}
 
 <script>
 // ══ CONFIG ══
-const API = '/api';  // → /.netlify/functions/cases via redirect
+var API = '/api';  // → /.netlify/functions/cases via redirect
 
 // ══ STATE ══
 let ALL = [];
@@ -293,9 +293,8 @@ function setSyncStatus(state,msg){ const el=document.getElementById('syncStatus'
 async function loadAll() {
   setSyncStatus('loading','⟳ กำลังโหลด...');
   try {
-    const qs = buildQueryString();
     const [casesRes, statsRes] = await Promise.all([
-      apiFetch('/?' + qs),
+      apiFetch('/?' + buildQueryString()),
       apiFetch('/stats')
     ]);
     ALL = casesRes.cases || [];
@@ -694,13 +693,13 @@ async function seedDatabase() {
   if(!confirm(`จะ import ${SEED_DATA.length} เคสเข้า Neon ใช่ไหม?\nควรรันแค่ครั้งเดียวเท่านั้น`)) return;
   try {
     // Step 1: init tables
-    let r = await fetch('/api/init', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
+    let r = await fetch('/.netlify/functions/cases/init', {method:'POST', headers:{'Content-Type':'application/json'}, body:'{}'});
     let d = await r.json(); console.log('Init:', d);
     // Step 2: seed in batches of 50
     const batch = 50;
     for(let i=0; i<SEED_DATA.length; i+=batch) {
       const chunk = SEED_DATA.slice(i,i+batch);
-      r = await fetch('/api/seed', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cases:chunk})});
+      r = await fetch('/.netlify/functions/cases/seed', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cases:chunk})});
       d = await r.json(); console.log(`Seeded ${i+chunk.length}/${SEED_DATA.length}:`, d);
     }
     alert('✅ Import สำเร็จ! รีโหลดหน้านี้ได้เลย');
