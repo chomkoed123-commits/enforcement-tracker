@@ -233,10 +233,11 @@ async function writeLog(sql, caseId, userId, displayName, actionType, changes, n
 }
  
 async function getCases(sql, qs) {
-  const { stage, result, owner, status, due, q, page, limit: limitParam } = qs;
-  const pageSize = Math.min(Math.max(parseInt(limitParam)||50, 1), 200);
-  const pageNum  = Math.max(parseInt(page)||1, 1);
-  const offset   = (pageNum - 1) * pageSize;
+  const { stage, result, owner, status, due, q, page, limit: limitParam, all } = qs;
+  const fetchAll = all === 'true';
+  const pageSize = fetchAll ? null : Math.min(Math.max(parseInt(limitParam)||50, 1), 200);
+  const pageNum  = fetchAll ? 1 : Math.max(parseInt(page)||1, 1);
+  const offset   = fetchAll ? 0 : (pageNum - 1) * pageSize;
   let cond = [], params = [], idx = 1;
   if (stage)  { cond.push(`hmvad LIKE $${idx}`); params.push(stage+"%"); idx++; }
   if (result) { cond.push(`result = $${idx}`); params.push(result); idx++; }
@@ -247,9 +248,11 @@ async function getCases(sql, qs) {
   else if (due === "today") cond.push(`due_date = CURRENT_DATE`);
   else if (due === "soon")  cond.push(`due_date >= CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days'`);
   const where = cond.length ? "WHERE "+cond.join(" AND ") : "";
-  const cases = await sql(`SELECT * FROM enforcement_cases ${where} ORDER BY priority DESC, amount DESC LIMIT ${pageSize} OFFSET ${offset}`, params);
+  const orderBy = "ORDER BY priority DESC, amount DESC";
+  const limitClause = fetchAll ? "" : `LIMIT ${pageSize} OFFSET ${offset}`;
+  const cases = await sql(`SELECT * FROM enforcement_cases ${where} ${orderBy} ${limitClause}`, params);
   const [{ total }] = await sql(`SELECT COUNT(*)::int AS total FROM enforcement_cases ${where}`, params);
-  return { cases, total, page: pageNum, pageSize };
+  return { cases, total, page: pageNum, pageSize: pageSize || total };
 }
 
 async function getCaseNotes(sql, caseId) {

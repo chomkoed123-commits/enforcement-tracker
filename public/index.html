@@ -340,7 +340,7 @@ function buildQueryString() {
     p.set('page', currentPage);
     p.set('limit', PAGE_SIZE);
   } else {
-    p.set('limit', 9999);
+    p.set('all', 'true');
   }
   return p.toString();
 }
