@@ -571,7 +571,9 @@ function openEditModal(id) {
   const r = ALL.find(x=>x.id===id); if(!r) return;
   const stageOpts=['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้','06ปิดงาน'].map(s=>`<option value="${s}" ${r.hmvad===s?'selected':''}>${s}</option>`).join('');
   const ACTION_LIST=['ตรวจรับรองบัญชี/ขอรับเงิน','บันทึกผลการอายัด','ยื่นอายัดทรัพย์','บันทึกผลการยื่นอายัด','ตรวจอายัดซ้ำ','ออกหมายตั้ง','ส่งคำบังคับ','บันทึกผลส่งคำบังคับ','สืบทรัพย์ใหม่','สืบทรัพย์ที่ดิน','สืบทรัพย์เงินเดือน','สืบทรัพย์บัญชี','ยื่นขอยึดทรัพย์','บันทึกผลขายทอดตลาด','ประนอมหนี้','ปิดงาน'];
-  const actionDatalist = ACTION_LIST.map(a=>`<option value="${a}">`).join('');
+  const isCustom = r.action && !ACTION_LIST.includes(r.action);
+  const actionOpts = ACTION_LIST.map(a=>`<option value="${a}" ${r.action===a?'selected':''}>${escHtml(a)}</option>`).join('') +
+    `<option value="__other__" ${isCustom?'selected':''}>อื่น ๆ (ระบุเอง)</option>`;
   const resultOpts=['ได้เงิน','ไม่ได้เงิน','รอผล',''].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v||'— ยังไม่อายัด'}</option>`).join('');
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-header">
@@ -584,12 +586,10 @@ function openEditModal(id) {
         <div class="g2">
           <div class="form-row"><div class="form-label">หมวด</div><select class="form-select" id="e_hmvad">${stageOpts}</select></div>
           <div class="form-row"><div class="form-label">Action</div>
-            <datalist id="actionDatalist">${actionDatalist}</datalist>
-            <input list="actionDatalist" class="form-input" id="e_action" value="${r.action||''}" placeholder="เลือกหรือพิมพ์ action ใหม่..."></div>
+            <select class="form-select" id="e_action_select" onchange="toggleCustomAction()">${actionOpts}</select>
+            <input class="form-input" id="e_action_custom" style="margin-top:6px;${isCustom?'':'display:none'}" value="${isCustom?escHtml(r.action):''}" placeholder="พิมพ์ action...">
+          </div>
         </div>
-        <div class="form-row"><div class="form-label">แก้ไขโดย *</div>
-        <select class="form-select" id="e_changed_by"></select>
-      </div>
       <div class="g3">
           <div class="form-row"><div class="form-label">สถานะ Action</div>
             <select class="form-select" id="e_status">
@@ -612,11 +612,18 @@ function openEditModal(id) {
         </div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-primary" onclick="saveEdit('${r.id}')">💾 บันทึก</button>
-        <button class="btn btn-ghost" onclick="openModal('${r.id}')">↩ ยกเลิก</button>
+        <button class="btn btn-primary" onclick="saveEdit('${escHtml(r.id)}')">💾 บันทึก</button>
+        <button class="btn btn-ghost" onclick="openModal('${escHtml(r.id)}')">↩ ยกเลิก</button>
       </div>
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
+}
+
+function toggleCustomAction() {
+  const sel = document.getElementById('e_action_select');
+  const inp = document.getElementById('e_action_custom');
+  if (sel.value === '__other__') { inp.style.display = ''; inp.focus(); }
+  else inp.style.display = 'none';
 }
 
 async function saveEdit(id) {
@@ -626,9 +633,13 @@ async function saveEdit(id) {
   if (r && parseFloat(r.amount) > 0 && Math.abs(newAmount - parseFloat(r.amount)) > 0.01) {
     if (!confirm(`ยืนยันการเปลี่ยนยอดฟ้องจาก ฿${fmt(r.amount)} → ฿${fmt(newAmount)} ?`)) return;
   }
+  const actionSel = document.getElementById('e_action_select');
+  const action = actionSel.value === '__other__'
+    ? (document.getElementById('e_action_custom').value.trim() || 'อื่น ๆ')
+    : actionSel.value;
   const patch = {
     hmvad: document.getElementById('e_hmvad').value,
-    action: document.getElementById('e_action').value,
+    action,
     action_status: document.getElementById('e_status').value,
     due_date: document.getElementById('e_due').value || null,
     result: document.getElementById('e_result').value,
@@ -769,8 +780,6 @@ async function loadOwners() {
     if (fo) fo.innerHTML = '<option value="">ทุกคน</option>' + opts;
     const no = document.getElementById('n_owner');
     if (no) no.innerHTML = '<option value="">— เลือกผู้รับผิดชอบ —</option>' + opts;
-    const eo = document.getElementById('e_changed_by');
-    if (eo) eo.innerHTML = opts;
   } catch(_) {}
 }
 
