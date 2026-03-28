@@ -691,14 +691,15 @@ async function addCase() {
 // ══ SORT / FILTER ══
 function sortBy(col){ if(sortCol===col) sortDir*=-1; else{sortCol=col;sortDir=-1;} applyLocalFilters(); }
 function sortData(arr){ arr.sort((a,b)=>{ let va=a[sortCol],vb=b[sortCol]; if(!va&&!vb) return 0; if(!va) return 1; if(!vb) return -1; if(typeof va==='number'||!isNaN(parseFloat(va))) return(parseFloat(va)-parseFloat(vb))*sortDir; return String(va).localeCompare(String(vb),'th')*sortDir; }); }
-function setView(v,btn){ currentView=v; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); ['viewTable','viewKanban','viewAction'].forEach(id=>{ document.getElementById(id).classList.toggle('hidden',!id.includes(v==='table'?'Table':v==='kanban'?'Kanban':'Action')); }); renderCurrent(); }
+function setView(v,btn){ currentView=v; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); if(btn) btn.classList.add('active'); const va=document.getElementById('viewAdmin'); if(v==='admin'){ ['viewTable','viewKanban','viewAction'].forEach(id=>document.getElementById(id)?.classList.add('hidden')); if(va){va.classList.remove('hidden');renderAdminPanel();} return; } if(va) va.classList.add('hidden'); ['viewTable','viewKanban','viewAction'].forEach(id=>{ document.getElementById(id).classList.toggle('hidden',!id.includes(v==='table'?'Table':v==='kanban'?'Kanban':'Action')); }); renderCurrent(); }
 function renderCurrent(){ if(currentView==='table') renderTable(); else if(currentView==='kanban') renderKanban(); else renderActionPlan(); }
 function closeModal(e){ if(!e||e.target===document.getElementById('modalOverlay')) document.getElementById('modalOverlay').classList.remove('open'); }
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
 
 let searchTimer;
 document.getElementById('searchInput').addEventListener('input', ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(loadAll,400); });
-['filterStage','filterResult','filterOwner','filterDue','filterStatus','filterAmount'].forEach(id=>{ document.getElementById(id)?.addEventListener('change', loadAll); });
+['filterStage','filterResult','filterOwner','filterDue','filterStatus'].forEach(id=>{ document.getElementById(id)?.addEventListener('change', loadAll); });
+document.getElementById('filterAmount')?.addEventListener('change', applyLocalFilters);
 
 function exportCSV(){
   const h=['เลขที่งาน','สำนวน','ผู้รับผิดชอบ','หมวด','Action','สถานะ','Due Date','ยอดฟ้อง','เงินที่ได้','ผลอายัด'];
@@ -1064,21 +1065,6 @@ async function adminAction(userId, action) {
   else alert(res?.error || 'เกิดข้อผิดพลาด');
 }
 
-// ── OVERRIDE setView to handle admin ────────────────────────────────────────
-const _origSetView = setView;
-function setView(view, btn) {
-  if (view === 'admin') {
-    ['viewTable','viewKanban','viewAction'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
-    const va = document.getElementById('viewAdmin');
-    if (va) { va.classList.remove('hidden'); renderAdminPanel(); }
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
-    return;
-  }
-  const va = document.getElementById('viewAdmin');
-  if (va) va.classList.add('hidden');
-  _origSetView(view, btn);
-}
 
 // ── checkAuthAndInit ─────────────────────────────────────────────────────────
 async function checkAuthAndInit() {
