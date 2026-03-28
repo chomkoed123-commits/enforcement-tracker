@@ -259,6 +259,11 @@ var API = '/.netlify/functions/cases';  // → /.netlify/functions/cases via red
 let ALL = [];
 let filtered = [];
 let sortCol = 'priority', sortDir = -1, currentView = 'table';
+let currentPage = 1, totalCases = 0;
+const PAGE_SIZE = 50;
+
+// ══ SECURITY ══
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
 // ══ API ══
 function getToken() { return localStorage.getItem('session_token')||''; }
@@ -293,11 +298,12 @@ function dueBadge(due){
   return `<span class="due-badge due-ok">${lbl}</span>`;
 }
 function isOverdue(r){ if(!r.due_date) return false; const t=new Date(); t.setHours(0,0,0,0); return new Date(r.due_date)<t && r.action_status!=='done'; }
-function toast(msg,color='var(--green)'){const t=document.createElement('div');t.className='toast';t.style.borderColor=color;t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2500);}
+function toast(msg,color='var(--green)'){const t=document.createElement('div');t.className='toast';t.style.borderColor=color;t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),4000);}
 function setSyncStatus(state,msg){ const el=document.getElementById('syncStatus'); el.className='sync-status '+state; el.textContent=msg; }
 
 // ══ LOAD ══
-async function loadAll() {
+async function loadAll(resetPage = false) {
+  if (resetPage) currentPage = 1;
   setSyncStatus('loading','⟳ กำลังโหลด...');
   try {
     const [casesRes, statsRes] = await Promise.all([
@@ -305,6 +311,7 @@ async function loadAll() {
       apiFetch('/stats')
     ]);
     ALL = casesRes.cases || [];
+    totalCases = casesRes.total || ALL.length;
     filtered = [...ALL];
     applyLocalFilters();
     renderKPI(statsRes);
@@ -329,8 +336,8 @@ function buildQueryString() {
   if(owner) p.set('owner', owner);
   if(due) p.set('due', due);
   if(status) p.set('status', status);
-  const amount = document.getElementById('filterAmount')?.value;
-  if(amount) p.set('amount', amount);
+  p.set('page', currentPage);
+  p.set('limit', PAGE_SIZE);
   return p.toString();
 }
 
@@ -365,23 +372,42 @@ function renderKPI(s) {
 // ══ TABLE ══
 function renderTable() {
   const tb = document.getElementById('tableBody');
-  if(!filtered.length){ tb.innerHTML='<tr><td colspan="12"><div class="empty"><div style="font-size:36px">📂</div><div>ไม่พบข้อมูล</div></div></td></tr>'; return; }
+  if(!filtered.length){ tb.innerHTML='<tr><td colspan="12"><div class="empty"><div style="font-size:36px">📂</div><div>ไม่พบข้อมูล — ลองล้างตัวกรอง</div></div></td></tr>'; renderPagination(); return; }
   tb.innerHTML = filtered.map(r => `
-    <tr class="${isOverdue(r)?'overdue-row':''}" onclick="openModal('${r.id}')">
-      <td><span class="dot ${r.priority_tag}" style="margin-right:4px"></span><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${r.priority}</span></td>
-      <td class="mono-cell">${r.id}</td>
-      <td class="mono-cell">${r.sanuan||''}</td>
-      <td>${r.owner||''}</td>
+    <tr class="${isOverdue(r)?'overdue-row':''}" onclick="openModal('${escHtml(r.id)}')">
+      <td><span class="dot ${escHtml(r.priority_tag)}" style="margin-right:4px"></span><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${escHtml(r.priority)}</span></td>
+      <td class="mono-cell">${escHtml(r.id)}</td>
+      <td class="mono-cell">${escHtml(r.sanuan)}</td>
+      <td>${escHtml(r.owner)}</td>
       <td><span class="stage-badge ${stageClass(r.hmvad)}">${stageLabel(r.hmvad)}</span></td>
-      <td style="font-size:12px;color:var(--text)">${r.action||''}</td>
+      <td style="font-size:12px;color:var(--text)">${escHtml(r.action)}</td>
       <td>${statusBadge(r.action_status)}</td>
       <td>${dueBadge(r.due_date)}</td>
       <td class="amount">${fmt(r.amount)}</td>
       <td class="amount recv">${parseFloat(r.money_recv)>0?fmt(r.money_recv):'-'}</td>
       <td>${resultBadge(r.result)}</td>
-      <td onclick="event.stopPropagation();openEditModal('${r.id}')"><button class="btn btn-ghost btn-sm">✏️</button></td>
+      <td onclick="event.stopPropagation();openEditModal('${escHtml(r.id)}')"><button class="btn btn-ghost btn-sm">✏️</button></td>
     </tr>`).join('');
+  renderPagination();
 }
+
+function renderPagination() {
+  let el = document.getElementById('paginationBar');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'paginationBar';
+    el.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;justify-content:center;font-size:13px;color:var(--text3)';
+    document.getElementById('viewTable').appendChild(el);
+  }
+  const totalPages = Math.max(1, Math.ceil(totalCases / PAGE_SIZE));
+  if (totalPages <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>‹ ก่อนหน้า</button>
+    <span>หน้า <strong style="color:var(--accent2)">${currentPage}</strong> / ${totalPages} &nbsp;(${totalCases} รายการ)</span>
+    <button class="btn btn-ghost btn-sm" onclick="goPage(${currentPage+1})" ${currentPage>=totalPages?'disabled':''}>ถัดไป ›</button>`;
+}
+
+function goPage(p) { currentPage = p; loadAll(); }
 
 // ══ KANBAN ══
 function renderKanban() {
@@ -394,14 +420,14 @@ function renderKanban() {
       <div class="col-header"><span class="stage-badge ${stageClass(s)}">${names[s]}</span><div class="col-count">${cards.length}</div></div>
       <div class="kanban-cards">
         ${cards.map(r=>`
-          <div class="kcard ${isOverdue(r)?'overdue':''}" onclick="openModal('${r.id}')">
-            <div class="kcard-id">${r.id}</div>
-            <div class="kcard-action">${r.action||''}</div>
+          <div class="kcard ${isOverdue(r)?'overdue':''}" onclick="openModal('${escHtml(r.id)}')">
+            <div class="kcard-id">${escHtml(r.id)}</div>
+            <div class="kcard-action">${escHtml(r.action)}</div>
             ${r.due_date?`<div style="margin-bottom:3px;font-size:11px">${dueBadge(r.due_date)}</div>`:''}
             ${r.action_status?`<div style="margin-bottom:3px">${statusBadge(r.action_status)}</div>`:''}
             <div class="kcard-footer">
               <div class="kcard-amount">฿${(parseFloat(r.amount)/1000).toFixed(1)}K</div>
-              <span style="font-size:10px;color:var(--text3)">${r.owner||''}</span>
+              <span style="font-size:10px;color:var(--text3)">${escHtml(r.owner)}</span>
             </div>
           </div>`).join('')}
         ${!cards.length?'<div style="text-align:center;padding:16px;color:var(--text3);font-size:12px">ไม่มีรายการ</div>':''}
@@ -437,20 +463,20 @@ function renderActionPlan() {
     return `<div class="ag">
       <div class="ag-header" onclick="toggleAg(this)">
         <span style="font-size:16px">${icon}</span>
-        <div><div style="font-size:13px;font-weight:700">${action}${od>0?` <span style="font-size:10px;color:var(--red2)">(${od} เกิน due)</span>`:''}</div><div style="font-size:11px;color:var(--text3)">${items.length} คดี</div></div>
+        <div><div style="font-size:13px;font-weight:700">${escHtml(action)}${od>0?` <span style="font-size:10px;color:var(--red2)">(${od} เกิน due)</span>`:''}</div><div style="font-size:11px;color:var(--text3)">${items.length} คดี</div></div>
         <div style="margin-left:auto;text-align:right"><div style="font-family:var(--mono);font-size:12px;color:var(--gold2);font-weight:600">฿${total.toLocaleString('th-TH',{maximumFractionDigits:0})}</div><div style="font-size:10px;color:var(--text3)">▾</div></div>
       </div>
       <div class="ag-body">${items.sort((a,b)=>b.priority-a.priority).map(r=>`
-        <div class="ai ${isOverdue(r)?'overdue':''}" onclick="openModal('${r.id}')">
+        <div class="ai ${isOverdue(r)?'overdue':''}" onclick="openModal('${escHtml(r.id)}')">
           <div class="ai-left">
-            <div class="ai-id">${r.id} · ${r.sanuan||''}</div>
-            <div class="ai-action">${r.action||''}</div>
+            <div class="ai-id">${escHtml(r.id)} · ${escHtml(r.sanuan)}</div>
+            <div class="ai-action">${escHtml(r.action)}</div>
             <div style="display:flex;gap:5px;margin-top:3px;flex-wrap:wrap">${statusBadge(r.action_status)} ${r.due_date?dueBadge(r.due_date):''}</div>
           </div>
           <div class="ai-right">
             <div style="font-family:var(--mono);font-size:12px;color:var(--gold2)">฿${fmt(r.amount)}</div>
-            <div style="font-size:10px;color:var(--text3)">${r.owner||''}</div>
-            <button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="event.stopPropagation();openEditModal('${r.id}')">✏️</button>
+            <div style="font-size:10px;color:var(--text3)">${escHtml(r.owner)}</div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="event.stopPropagation();openEditModal('${escHtml(r.id)}')">✏️</button>
           </div>
         </div>`).join('')}
       </div>
@@ -462,57 +488,78 @@ function toggleAg(h){ const b=h.nextElementSibling; b.classList.toggle('open'); 
 // ══ DETAIL MODAL ══
 function openModal(id) {
   const r = ALL.find(x=>x.id===id); if(!r) return;
-  const notes = r.notes||[];
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-header">
       <div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${r.id} · ${r.sanuan||''}</div>
-        <div style="font-size:16px;font-weight:700;margin-top:2px">${r.action||''}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${escHtml(r.id)} · ${escHtml(r.sanuan)}</div>
+        <div style="font-size:16px;font-weight:700;margin-top:2px">${escHtml(r.action)}</div>
         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
           <span class="stage-badge ${stageClass(r.hmvad)}">${stageLabel(r.hmvad)}</span>
           ${resultBadge(r.result)} ${statusBadge(r.action_status)}
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-left:auto">
-        <button class="btn btn-primary btn-sm" onclick="openEditModal('${r.id}')">✏️ แก้ไข</button>
+        <button class="btn btn-primary btn-sm" onclick="openEditModal('${escHtml(r.id)}')">✏️ แก้ไข</button>
         <button class="modal-close" onclick="closeModal()">×</button>
       </div>
     </div>
     <div class="modal-body">
       <div class="nab">
         <div class="nab-label">⚡ ACTION ถัดไป</div>
-        <div class="nab-text">${r.next_step||r.action||''}</div>
+        <div class="nab-text">${escHtml(r.next_step||r.action)}</div>
         ${r.due_date?`<div style="margin-top:5px">${dueBadge(r.due_date)} <span style="font-size:10px;color:var(--text3)">Due Date</span></div>`:''}
       </div>
       <div style="margin-bottom:14px">
         <div class="sec-title">ข้อมูลคดี</div>
         <div class="info-grid">
-          <div class="info-row"><div class="info-label">ผู้รับผิดชอบ</div><div class="info-value">${r.owner||''}</div></div>
-          <div class="info-row"><div class="info-label">ประเภทสินเชื่อ</div><div class="info-value">${r.loan_type||''}</div></div>
+          <div class="info-row"><div class="info-label">ผู้รับผิดชอบ</div><div class="info-value">${escHtml(r.owner)}</div></div>
+          <div class="info-row"><div class="info-label">ประเภทสินเชื่อ</div><div class="info-value">${escHtml(r.loan_type)}</div></div>
           <div class="info-row"><div class="info-label">ยอดส่งฟ้อง</div><div class="info-value mono">฿${fmt(r.amount)}</div></div>
           <div class="info-row"><div class="info-label">เงินที่ได้รับ</div><div class="info-value" style="color:var(--green2);font-family:var(--mono)">฿${fmt(r.money_recv)}</div></div>
-          <div class="info-row"><div class="info-label">ส่ง OA</div><div class="info-value">${r.send_oa||''}</div></div>
-          <div class="info-row"><div class="info-label">ทรัพย์สิน</div><div class="info-value">${r.asset||''}</div></div>
+          <div class="info-row"><div class="info-label">ส่ง OA</div><div class="info-value">${escHtml(r.send_oa)}</div></div>
+          <div class="info-row"><div class="info-label">ทรัพย์สิน</div><div class="info-value">${escHtml(r.asset)}</div></div>
         </div>
       </div>
       <div style="margin-bottom:14px">
         <div class="sec-title">ผลการสืบทรัพย์</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.salary_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">💼 เงินเดือน: ${r.salary_result||'ยังไม่สืบ'}</span>
-          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.bank_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏦 บัญชี: ${r.bank_result||'ยังไม่สืบ'}</span>
-          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.land_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏠 ที่ดิน: ${r.land_result||'ยังไม่สืบ'}</span>
+          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.salary_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">💼 เงินเดือน: ${escHtml(r.salary_result||'ยังไม่สืบ')}</span>
+          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.bank_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏦 บัญชี: ${escHtml(r.bank_result||'ยังไม่สืบ')}</span>
+          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.land_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏠 ที่ดิน: ${escHtml(r.land_result||'ยังไม่สืบ')}</span>
         </div>
       </div>
       <div>
         <div class="sec-title">📒 บันทึกการติดตาม</div>
-        <textarea class="form-textarea" id="noteInput_${r.id}" placeholder="บันทึก action ที่ดำเนินการ, ผลลัพธ์..."></textarea>
-        <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="saveNote('${r.id}')">💾 บันทึก</button></div>
-        <div class="saved-notes">
-          ${notes.map(n=>`<div class="saved-note"><div class="note-time">${new Date(n.time).toLocaleString('th-TH')}</div>${n.text}<button class="note-del" onclick="delNote('${r.id}',${n.id})">✕</button></div>`).join('')}
+        <textarea class="form-textarea" id="noteInput_${escHtml(r.id)}" placeholder="บันทึก action ที่ดำเนินการ, ผลลัพธ์..."></textarea>
+        <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="saveNote('${escHtml(r.id)}')">💾 บันทึก</button></div>
+        <div class="saved-notes" id="notesSection_${escHtml(r.id)}">
+          <div style="color:var(--text3);font-size:12px">⏳ กำลังโหลด...</div>
         </div>
       </div>
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
+  loadModalNotes(id);
+}
+
+async function loadModalNotes(caseId) {
+  try {
+    const data = await apiFetch('/'+encodeURIComponent(caseId)+'/notes');
+    if (!data) return;
+    const notes = data.notes || [];
+    const r = ALL.find(x=>x.id===caseId);
+    if (r) r.notes = notes;
+    const el = document.getElementById('notesSection_'+caseId);
+    if (!el) return;
+    el.innerHTML = notes.length ? notes.map(n=>`
+      <div class="saved-note">
+        <div class="note-time">${new Date(n.time).toLocaleString('th-TH')}</div>
+        ${escHtml(n.text)}
+        <button class="note-del" onclick="delNote('${escHtml(caseId)}',${parseInt(n.id)})">✕</button>
+      </div>`).join('') : '<div style="color:var(--text3);font-size:12px">ยังไม่มีบันทึก</div>';
+  } catch(e) {
+    const el = document.getElementById('notesSection_'+caseId);
+    if (el) el.innerHTML = '<div style="color:var(--red2);font-size:12px">โหลดบันทึกไม่ได้</div>';
+  }
 }
 
 // ══ EDIT MODAL ══
@@ -524,7 +571,7 @@ function openEditModal(id) {
   const resultOpts=['ได้เงิน','ไม่ได้เงิน','รอผล',''].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v||'— ยังไม่อายัด'}</option>`).join('');
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-header">
-      <div><div style="font-family:var(--mono);font-size:11px;color:var(--text3)">✏️ แก้ไขเคส</div><div style="font-size:15px;font-weight:700;margin-top:2px">${r.id}</div></div>
+      <div><div style="font-family:var(--mono);font-size:11px;color:var(--text3)">✏️ แก้ไขเคส</div><div style="font-size:15px;font-weight:700;margin-top:2px">${escHtml(r.id)}</div></div>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
     <div class="modal-body">
@@ -537,11 +584,7 @@ function openEditModal(id) {
             <input list="actionDatalist" class="form-input" id="e_action" value="${r.action||''}" placeholder="เลือกหรือพิมพ์ action ใหม่..."></div>
         </div>
         <div class="form-row"><div class="form-label">แก้ไขโดย *</div>
-        <select class="form-select" id="e_changed_by">
-          <option value="ไมค์">ไมค์</option>
-          <option value="ต่าย">ต่าย</option>
-          <option value="ก้อย">ก้อย</option>
-        </select>
+        <select class="form-select" id="e_changed_by"></select>
       </div>
       <div class="g3">
           <div class="form-row"><div class="form-label">สถานะ Action</div>
@@ -573,19 +616,24 @@ function openEditModal(id) {
 }
 
 async function saveEdit(id) {
-  const changedByEl = document.getElementById('e_changed_by');
+  const r = ALL.find(x=>x.id===id);
+  const newAmount = parseFloat(document.getElementById('e_amount').value)||0;
+  const newMoney  = parseFloat(document.getElementById('e_money').value)||0;
+  if (r && parseFloat(r.amount) > 0 && Math.abs(newAmount - parseFloat(r.amount)) > 0.01) {
+    if (!confirm(`ยืนยันการเปลี่ยนยอดฟ้องจาก ฿${fmt(r.amount)} → ฿${fmt(newAmount)} ?`)) return;
+  }
   const patch = {
     hmvad: document.getElementById('e_hmvad').value,
     action: document.getElementById('e_action').value,
     action_status: document.getElementById('e_status').value,
     due_date: document.getElementById('e_due').value || null,
     result: document.getElementById('e_result').value,
-    money_recv: parseFloat(document.getElementById('e_money').value)||0,
-    amount: parseFloat(document.getElementById('e_amount').value)||0,
+    money_recv: newMoney,
+    amount: newAmount,
     changed_by: (getCurrentUser() ? getCurrentUser().display_name : 'user'),
   };
   try {
-    await apiFetch('/'+id, {method:'PUT', body:patch});
+    await apiFetch('/'+encodeURIComponent(id), {method:'PUT', body:patch});
     // Update local cache
     const r = ALL.find(x=>x.id===id);
     if(r) Object.assign(r, patch);
@@ -607,24 +655,19 @@ async function saveNote(caseId) {
   const inp = document.getElementById('noteInput_'+caseId);
   if(!inp||!inp.value.trim()) return;
   try {
-    const r2 = ALL.find(x=>x.id===caseId);
-    const note = await apiFetch('/'+caseId+'/notes', {method:'POST', body:{text:inp.value.trim(), changed_by: r2 ? r2.owner : 'user'}});
-    const r = ALL.find(x=>x.id===caseId);
-    if(r){ if(!r.notes) r.notes=[]; r.notes.unshift({id:note.id,text:note.note_text,time:note.created_at}); }
+    await apiFetch('/'+encodeURIComponent(caseId)+'/notes', {method:'POST', body:{text:inp.value.trim()}});
     inp.value='';
-    const cont = document.getElementById('saveNotes_'+caseId);
-    openModal(caseId);
     toast('📝 บันทึกแล้ว');
+    loadModalNotes(caseId);
   } catch(e) { toast('❌ '+e.message,'var(--red)'); }
 }
 
 async function delNote(caseId, noteId) {
+  if (!confirm('ลบบันทึกนี้?')) return;
   try {
-    await apiFetch('/'+caseId+'/notes/'+noteId, {method:'DELETE'});
-    const r = ALL.find(x=>x.id===caseId);
-    if(r&&r.notes) r.notes = r.notes.filter(n=>n.id!==noteId);
-    openModal(caseId);
+    await apiFetch('/'+encodeURIComponent(caseId)+'/notes/'+noteId, {method:'DELETE'});
     toast('🗑 ลบบันทึกแล้ว','var(--orange)');
+    loadModalNotes(caseId);
   } catch(e) { toast('❌ '+e.message,'var(--red)'); }
 }
 
@@ -640,7 +683,7 @@ function showAddForm() {
       <div class="g3">
         <div class="form-row"><div class="form-label">เลขที่งาน *</div><input class="form-input" id="n_id" placeholder="MC240100001"></div>
         <div class="form-row"><div class="form-label">เลขที่สำนวน</div><input class="form-input" id="n_sanuan" placeholder="100/2567"></div>
-        <div class="form-row"><div class="form-label">ผู้รับผิดชอบ</div><select class="form-select" id="n_owner"><option>ไมค์</option><option>ต่าย</option><option>ก้อย</option></select></div>
+        <div class="form-row"><div class="form-label">ผู้รับผิดชอบ</div><select class="form-select" id="n_owner"></select></div>
       </div>
       <div class="g3">
         <div class="form-row"><div class="form-label">หมวด</div><select class="form-select" id="n_hmvad">${stageOpts}</select></div>
@@ -697,9 +740,24 @@ function closeModal(e){ if(!e||e.target===document.getElementById('modalOverlay'
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
 
 let searchTimer;
-document.getElementById('searchInput').addEventListener('input', ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(loadAll,400); });
-['filterStage','filterResult','filterOwner','filterDue','filterStatus'].forEach(id=>{ document.getElementById(id)?.addEventListener('change', loadAll); });
+document.getElementById('searchInput').addEventListener('input', ()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(()=>loadAll(true),400); });
+['filterStage','filterResult','filterOwner','filterDue','filterStatus'].forEach(id=>{ document.getElementById(id)?.addEventListener('change', ()=>loadAll(true)); });
 document.getElementById('filterAmount')?.addEventListener('change', applyLocalFilters);
+
+async function loadOwners() {
+  try {
+    const data = await apiFetch('/owners');
+    const owners = data?.owners || [];
+    if (!owners.length) return;
+    const opts = owners.map(o=>`<option value="${escHtml(o)}">${escHtml(o)}</option>`).join('');
+    const fo = document.getElementById('filterOwner');
+    if (fo) fo.innerHTML = '<option value="">ทุกคน</option>' + opts;
+    const no = document.getElementById('n_owner');
+    if (no) no.innerHTML = '<option value="">— เลือกผู้รับผิดชอบ —</option>' + opts;
+    const eo = document.getElementById('e_changed_by');
+    if (eo) eo.innerHTML = opts;
+  } catch(_) {}
+}
 
 function exportCSV(){
   const h=['เลขที่งาน','สำนวน','ผู้รับผิดชอบ','หมวด','Action','สถานะ','Due Date','ยอดฟ้อง','เงินที่ได้','ผลอายัด'];
@@ -995,8 +1053,13 @@ async function renderAdminPanel() {
         <div id="adminLogsTable" style="margin-top:12px"></div>
       </div>`;
   } catch(e) { container.innerHTML = `<div style="color:var(--red2);padding:20px">Error: ${e.message}</div>`; }
-  // Load online users
+  // Load online users + setup auto-refresh
   loadOnlineUsers();
+  if (window._onlineTimer) clearInterval(window._onlineTimer);
+  window._onlineTimer = setInterval(()=>{
+    if (document.getElementById('onlineList')) loadOnlineUsers();
+    else { clearInterval(window._onlineTimer); window._onlineTimer = null; }
+  }, 30000);
 }
 
 async function loadOnlineUsers() {
@@ -1133,6 +1196,7 @@ function initApp(user) {
   }
 
   // Load data
+  loadOwners();
   loadAll();
 }
 

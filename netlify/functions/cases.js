@@ -233,7 +233,10 @@ async function writeLog(sql, caseId, userId, displayName, actionType, changes, n
 }
  
 async function getCases(sql, qs) {
-  const { stage, result, owner, status, due, q } = qs;
+  const { stage, result, owner, status, due, q, page, limit: limitParam } = qs;
+  const pageSize = Math.min(Math.max(parseInt(limitParam)||50, 1), 200);
+  const pageNum  = Math.max(parseInt(page)||1, 1);
+  const offset   = (pageNum - 1) * pageSize;
   let cond = [], params = [], idx = 1;
   if (stage)  { cond.push(`hmvad LIKE $${idx}`); params.push(stage+"%"); idx++; }
   if (result) { cond.push(`result = $${idx}`); params.push(result); idx++; }
@@ -244,7 +247,18 @@ async function getCases(sql, qs) {
   else if (due === "today") cond.push(`due_date = CURRENT_DATE`);
   else if (due === "soon")  cond.push(`due_date >= CURRENT_DATE AND due_date <= CURRENT_DATE + INTERVAL '7 days'`);
   const where = cond.length ? "WHERE "+cond.join(" AND ") : "";
-  return await sql(`SELECT c.*, COALESCE(json_agg(json_build_object('id',n.id,'text',n.note_text,'time',n.created_at) ORDER BY n.created_at DESC) FILTER(WHERE n.id IS NOT NULL),'[]') as notes FROM enforcement_cases c LEFT JOIN case_notes n ON n.case_id=c.id ${where} GROUP BY c.id ORDER BY c.priority DESC,c.amount DESC`, params);
+  const cases = await sql(`SELECT * FROM enforcement_cases ${where} ORDER BY priority DESC, amount DESC LIMIT ${pageSize} OFFSET ${offset}`, params);
+  const [{ total }] = await sql(`SELECT COUNT(*)::int AS total FROM enforcement_cases ${where}`, params);
+  return { cases, total, page: pageNum, pageSize };
+}
+
+async function getCaseNotes(sql, caseId) {
+  return await sql`SELECT id, note_text AS text, created_at AS time FROM case_notes WHERE case_id=${caseId} ORDER BY created_at DESC`;
+}
+
+async function getOwners(sql) {
+  const rows = await sql`SELECT DISTINCT owner FROM enforcement_cases WHERE owner IS NOT NULL AND owner != '' ORDER BY owner`;
+  return rows.map(r => r.owner);
 }
  
 async function upsertCase(sql, c) {
@@ -302,11 +316,13 @@ async function getStats(sql) {
 }
  
 async function getLogs(sql, caseId, limit=50) {
-  return await sql`SELECT * FROM action_logs WHERE case_id=${caseId} ORDER BY created_at DESC LIMIT ${parseInt(limit)}`;
+  const cap = Math.min(Math.max(parseInt(limit)||50, 1), 500);
+  return await sql`SELECT * FROM action_logs WHERE case_id=${caseId} ORDER BY created_at DESC LIMIT ${cap}`;
 }
- 
+
 async function getAllLogs(sql, limit=100) {
-  return await sql`SELECT l.*,c.sanuan FROM action_logs l LEFT JOIN enforcement_cases c ON c.id=l.case_id ORDER BY l.created_at DESC LIMIT ${parseInt(limit)}`;
+  const cap = Math.min(Math.max(parseInt(limit)||100, 1), 1000);
+  return await sql`SELECT l.*,c.sanuan FROM action_logs l LEFT JOIN enforcement_cases c ON c.id=l.case_id ORDER BY l.created_at DESC LIMIT ${cap}`;
 }
  
 // ── MAIN HANDLER ────────────────────────────────────────────────────────────
@@ -377,25 +393,25 @@ exports.handler = async (event) => {
  
     // Cases routes
     if(method==="GET"  && (path===""||path==="/"))  {
-      // Ping last_seen ทุกครั้งที่ fetch cases
       await sql`UPDATE user_sessions SET last_seen=NOW() WHERE token=${token} AND expires_at>NOW()`;
-      return resp(200,{cases:await getCases(sql,qs)});
+      return resp(200, await getCases(sql,qs));
     }
     if(method==="GET"  && path==="/stats")           return resp(200,await getStats(sql));
     if(method==="GET"  && path==="/online")          return resp(200,{online:await getOnlineUsers(sql)});
     if(method==="GET"  && path==="/logs")            return resp(200,{logs:await getAllLogs(sql,qs.limit)});
-    if(method==="GET"  && path==="/online")          return resp(200,{online:await getOnlineUsers(sql)});
+    if(method==="GET"  && path==="/owners")          return resp(200,{owners:await getOwners(sql)});
     if(method==="POST" && (path===""||path==="/"))   return resp(200,await upsertCase(sql,body));
- 
+
     const pm=path.match(/^\/([^/]+)$/);
     if(method==="PUT"  && pm)                        return resp(200,await patchCase(sql,pm[1],body,session));
- 
+
     const lgm=path.match(/^\/([^/]+)\/logs$/);
     if(method==="GET"  && lgm)                       return resp(200,{logs:await getLogs(sql,lgm[1],qs.limit)});
- 
+
     const npm=path.match(/^\/([^/]+)\/notes$/);
+    if(method==="GET"  && npm)                       return resp(200,{notes:await getCaseNotes(sql,npm[1])});
     if(method==="POST" && npm)                       return resp(200,await addNote(sql,npm[1],body,session));
- 
+
     const ndm=path.match(/^\/([^/]+)\/notes\/(\d+)$/);
     if(method==="DELETE"&&ndm)                       return resp(200,await deleteNote(sql,ndm[2]));
  
