@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>ระบบติดตามงานบังคับคดี</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
 :root{
   --bg:#0a0e1a;--bg2:#0f1629;--bg3:#141c35;--bg4:#1a2340;
@@ -192,6 +193,51 @@ td.amount.recv{color:var(--green2);}
 .hidden{display:none!important;}
 .empty{text-align:center;padding:50px 20px;color:var(--text3);}
 @media(max-width:768px){.kpi-bar{grid-template-columns:repeat(2,1fr)}.kanban{grid-template-columns:1fr}.info-grid,.g2,.g3{grid-template-columns:1fr}}
+
+/* FILTER CHIPS */
+.filter-chips{display:flex;gap:6px;padding:6px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;}
+.filter-chips:empty{display:none;}
+.chip{display:inline-flex;align-items:center;gap:5px;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--accent2);}
+.chip-x{background:none;border:none;color:var(--accent2);cursor:pointer;font-size:14px;line-height:1;padding:0 2px;opacity:.7;}
+.chip-x:hover{opacity:1;}
+.chip-label{font-size:10px;color:var(--text3);margin-right:2px;}
+.chips-clear{padding:3px 10px;border-radius:20px;font-size:12px;background:none;border:1px solid var(--border2);color:var(--text3);cursor:pointer;}
+.chips-clear:hover{border-color:var(--red2);color:var(--red2);}
+
+/* MODAL TABS */
+.modal-tabs{display:flex;border-bottom:1px solid var(--border);padding:0 18px;}
+.modal-tab{padding:8px 14px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text3);font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;}
+.modal-tab:hover{color:var(--text2);}
+.modal-tab.active{color:var(--accent2);border-bottom-color:var(--accent);}
+.tab-pane{display:none;} .tab-pane.active{display:block;}
+
+/* PERSON DASHBOARD */
+.person-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.person-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;transition:border-color .15s;}
+.person-card:hover{border-color:var(--accent);}
+.person-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+.person-stat-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;}
+.pstat{text-align:center;background:var(--bg3);border-radius:6px;padding:6px;}
+.pstat-num{font-family:var(--mono);font-size:17px;font-weight:700;}
+.pstat-lbl{font-size:10px;color:var(--text3);margin-top:1px;}
+.pbar-wrap{background:var(--bg3);border-radius:4px;height:5px;overflow:hidden;}
+.pbar{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--green));}
+
+/* LOG TABLE */
+.log-table{width:100%;border-collapse:collapse;font-size:12px;}
+.log-table th{padding:6px 8px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border2);}
+.log-table td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;}
+.log-table tr:last-child td{border-bottom:none;}
+
+/* IMPORT MODAL */
+.import-drop{border:2px dashed var(--border2);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text3);}
+.import-drop:hover,.import-drop.drag{border-color:var(--accent);color:var(--accent2);}
+.import-drop input[type=file]{display:none;}
+.import-preview{max-height:300px;overflow:auto;border-radius:7px;border:1px solid var(--border2);}
+.preview-table{width:100%;border-collapse:collapse;font-size:11px;}
+.preview-table th{background:var(--bg3);padding:5px 8px;text-align:left;color:var(--text3);font-size:10px;border-bottom:1px solid var(--border2);}
+.preview-table td{padding:5px 8px;border-bottom:1px solid var(--border);color:var(--text2);}
+.preview-table tr:last-child td{border-bottom:none;}
 </style>
 </head>
 <body>
@@ -204,6 +250,7 @@ td.amount.recv{color:var(--green2);}
       <div class="sync-status loading" id="syncStatus">⟳ กำลังโหลด...</div>
       <button class="btn btn-ghost btn-sm" onclick="loadAll()" title="Refresh">↻ Sync</button>
       <button class="btn btn-green btn-sm" onclick="showAddForm()">＋ เพิ่มเคส</button>
+      <button class="btn btn-ghost btn-sm" onclick="showImportModal()">📥 Import</button>
       <button class="btn btn-gold btn-sm" onclick="exportCSV()">⬇ Export</button>
     </div>
   </div>
@@ -220,11 +267,13 @@ td.amount.recv{color:var(--green2);}
   <select id="filterAmount"><option value="">ทุกยอด</option><option value="0-10000">฿0–10K</option><option value="10000-30000">฿10K–30K</option><option value="30000-100000">฿30K–100K</option><option value="100000-99999999">฿100K+</option></select>
   <div class="count-badge">แสดง <span id="countDisplay">0</span> รายการ</div>
 </div>
+<div class="filter-chips" id="filterChips"></div>
 
 <div class="view-tabs">
   <button class="tab-btn active" onclick="setView('table',this)">📋 ตาราง</button>
   <button class="tab-btn" onclick="setView('kanban',this)">🗂 Kanban</button>
   <button class="tab-btn" onclick="setView('action',this)">⚡ Action Plan</button>
+  <button class="tab-btn" onclick="setView('person',this)">👤 รายคน</button>
 </div>
 
 <div class="main">
@@ -244,7 +293,38 @@ td.amount.recv{color:var(--green2);}
   </table></div></div>
   <div id="viewKanban" class="hidden"><div class="kanban" id="kanbanBoard"></div></div>
   <div id="viewAction" class="hidden"><div id="recPanel"></div><div class="action-plan" id="actionPlan"></div></div>
+  <div id="viewPerson" class="hidden"><div class="person-grid" id="personGrid"></div></div>
   <div id="viewAdmin" class="hidden"></div>
+</div>
+
+<div class="modal-overlay" id="importOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <div><div style="font-size:15px;font-weight:700">📥 นำเข้าข้อมูล CSV / Excel</div><div style="font-size:12px;color:var(--text3);margin-top:2px">รองรับ .xlsx, .csv — สูงสุด 500 แถว</div></div>
+      <button class="modal-close" onclick="document.getElementById('importOverlay').classList.remove('open')">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="import-drop" id="importDrop" onclick="document.getElementById('importFileInput').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleImportDrop(event)">
+        <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" onchange="handleImportFile(event)">
+        <div style="font-size:32px;margin-bottom:8px">📂</div>
+        <div style="font-size:14px;font-weight:600">คลิกหรือลากไฟล์มาวางที่นี่</div>
+        <div style="font-size:12px;margin-top:4px">รองรับ Excel (.xlsx) และ CSV (.csv)</div>
+      </div>
+      <div style="margin-top:10px;background:var(--bg3);border-radius:7px;padding:10px;font-size:12px;color:var(--text3)">
+        <strong style="color:var(--text2)">คอลัมน์ที่รองรับ:</strong> id, sanuan, owner, hmvad, action, next_step, amount, loan_type, asset, result, money_recv, priority, priority_tag, salary_result, bank_result, land_result, send_oa, action_status, due_date
+      </div>
+      <div id="importPreviewArea" style="margin-top:12px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">ตัวอย่างข้อมูล (<span id="importRowCount">0</span> แถว)</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="clearImport()">✕ ยกเลิก</button>
+            <button class="btn btn-primary btn-sm" onclick="doImport()" id="doImportBtn">✅ นำเข้า</button>
+          </div>
+        </div>
+        <div class="import-preview" id="importPreviewTable"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
@@ -356,7 +436,44 @@ function applyLocalFilters() {
   sortData(sortedFiltered);
   filtered = sortedFiltered;
   document.getElementById('countDisplay').textContent = filtered.length;
+  renderFilterChips();
   renderCurrent();
+}
+
+function renderFilterChips() {
+  const el = document.getElementById('filterChips');
+  if (!el) return;
+  const labels = {
+    q: { label:'ค้นหา', el:'searchInput' },
+    stage: { label:'หมวด', el:'filterStage' },
+    result: { label:'ผลอายัด', el:'filterResult' },
+    owner: { label:'ผู้รับ', el:'filterOwner' },
+    due: { label:'Due', el:'filterDue' },
+    status: { label:'สถานะ', el:'filterStatus' },
+    amount: { label:'ยอด', el:'filterAmount' }
+  };
+  const chips = [];
+  for (const [key, cfg] of Object.entries(labels)) {
+    const inp = document.getElementById(cfg.el);
+    if (!inp || !inp.value) continue;
+    const displayVal = inp.tagName === 'SELECT' ? (inp.options[inp.selectedIndex]?.text || inp.value) : inp.value;
+    chips.push(`<div class="chip"><span class="chip-label">${cfg.label}:</span>${escHtml(displayVal)}<button class="chip-x" onclick="clearFilter('${key}','${cfg.el}')">×</button></div>`);
+  }
+  el.innerHTML = chips.length ? chips.join('') + `<button class="chips-clear" onclick="clearAllFilters()">ล้างทั้งหมด</button>` : '';
+}
+
+function clearFilter(key, elId) {
+  const el = document.getElementById(elId);
+  if (el) el.value = '';
+  loadAll(true);
+}
+
+function clearAllFilters() {
+  ['searchInput','filterStage','filterResult','filterOwner','filterDue','filterStatus','filterAmount'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  loadAll(true);
 }
 
 // ══ KPI ══
@@ -492,10 +609,11 @@ function toggleAg(h){ const b=h.nextElementSibling; b.classList.toggle('open'); 
 // ══ DETAIL MODAL ══
 function openModal(id) {
   const r = ALL.find(x=>x.id===id); if(!r) return;
+  const eid = escHtml(r.id);
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-header">
       <div>
-        <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${escHtml(r.id)} · ${escHtml(r.sanuan)}</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${eid} · ${escHtml(r.sanuan)}</div>
         <div style="font-size:16px;font-weight:700;margin-top:2px">${escHtml(r.action)}</div>
         <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
           <span class="stage-badge ${stageClass(r.hmvad)}">${stageLabel(r.hmvad)}</span>
@@ -503,46 +621,89 @@ function openModal(id) {
         </div>
       </div>
       <div style="display:flex;gap:6px;margin-left:auto">
-        <button class="btn btn-primary btn-sm" onclick="openEditModal('${escHtml(r.id)}')">✏️ แก้ไข</button>
+        <button class="btn btn-primary btn-sm" onclick="openEditModal('${eid}')">✏️ แก้ไข</button>
         <button class="modal-close" onclick="closeModal()">×</button>
       </div>
     </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchModalTab(this,'tab-info')">📋 ข้อมูล</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'tab-notes')">📒 บันทึก</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'tab-logs');loadCaseLogs('${eid}')">📜 ประวัติ</button>
+    </div>
     <div class="modal-body">
-      <div class="nab">
-        <div class="nab-label">⚡ ACTION ถัดไป</div>
-        <div class="nab-text">${escHtml(r.next_step||r.action)}</div>
-        ${r.due_date?`<div style="margin-top:5px">${dueBadge(r.due_date)} <span style="font-size:10px;color:var(--text3)">Due Date</span></div>`:''}
-      </div>
-      <div style="margin-bottom:14px">
-        <div class="sec-title">ข้อมูลคดี</div>
-        <div class="info-grid">
-          <div class="info-row"><div class="info-label">ผู้รับผิดชอบ</div><div class="info-value">${escHtml(r.owner)}</div></div>
-          <div class="info-row"><div class="info-label">ประเภทสินเชื่อ</div><div class="info-value">${escHtml(r.loan_type)}</div></div>
-          <div class="info-row"><div class="info-label">ยอดส่งฟ้อง</div><div class="info-value mono">฿${fmt(r.amount)}</div></div>
-          <div class="info-row"><div class="info-label">เงินที่ได้รับ</div><div class="info-value" style="color:var(--green2);font-family:var(--mono)">฿${fmt(r.money_recv)}</div></div>
-          <div class="info-row"><div class="info-label">ส่ง OA</div><div class="info-value">${escHtml(r.send_oa)}</div></div>
-          <div class="info-row"><div class="info-label">ทรัพย์สิน</div><div class="info-value">${escHtml(r.asset)}</div></div>
+      <div class="tab-pane active" id="tab-info">
+        <div class="nab">
+          <div class="nab-label">⚡ ACTION ถัดไป</div>
+          <div class="nab-text">${escHtml(r.next_step||r.action)}</div>
+          ${r.due_date?`<div style="margin-top:5px">${dueBadge(r.due_date)} <span style="font-size:10px;color:var(--text3)">Due Date</span></div>`:''}
+        </div>
+        <div style="margin-bottom:14px">
+          <div class="sec-title">ข้อมูลคดี</div>
+          <div class="info-grid">
+            <div class="info-row"><div class="info-label">ผู้รับผิดชอบ</div><div class="info-value">${escHtml(r.owner)}</div></div>
+            <div class="info-row"><div class="info-label">ประเภทสินเชื่อ</div><div class="info-value">${escHtml(r.loan_type)}</div></div>
+            <div class="info-row"><div class="info-label">ยอดส่งฟ้อง</div><div class="info-value mono">฿${fmt(r.amount)}</div></div>
+            <div class="info-row"><div class="info-label">เงินที่ได้รับ</div><div class="info-value" style="color:var(--green2);font-family:var(--mono)">฿${fmt(r.money_recv)}</div></div>
+            <div class="info-row"><div class="info-label">ส่ง OA</div><div class="info-value">${escHtml(r.send_oa)}</div></div>
+            <div class="info-row"><div class="info-label">ทรัพย์สิน</div><div class="info-value">${escHtml(r.asset)}</div></div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-title">ผลการสืบทรัพย์</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.salary_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">💼 เงินเดือน: ${escHtml(r.salary_result||'ยังไม่สืบ')}</span>
+            <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.bank_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏦 บัญชี: ${escHtml(r.bank_result||'ยังไม่สืบ')}</span>
+            <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.land_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏠 ที่ดิน: ${escHtml(r.land_result||'ยังไม่สืบ')}</span>
+          </div>
         </div>
       </div>
-      <div style="margin-bottom:14px">
-        <div class="sec-title">ผลการสืบทรัพย์</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.salary_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">💼 เงินเดือน: ${escHtml(r.salary_result||'ยังไม่สืบ')}</span>
-          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.bank_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏦 บัญชี: ${escHtml(r.bank_result||'ยังไม่สืบ')}</span>
-          <span style="padding:2px 8px;border-radius:4px;font-size:12px;font-weight:500;${r.land_result==='พบ'?'background:rgba(16,185,129,.15);color:var(--green2)':'background:rgba(100,116,139,.1);color:var(--text3)'}">🏠 ที่ดิน: ${escHtml(r.land_result||'ยังไม่สืบ')}</span>
-        </div>
-      </div>
-      <div>
+      <div class="tab-pane" id="tab-notes">
         <div class="sec-title">📒 บันทึกการติดตาม</div>
-        <textarea class="form-textarea" id="noteInput_${escHtml(r.id)}" placeholder="บันทึก action ที่ดำเนินการ, ผลลัพธ์..."></textarea>
-        <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="saveNote('${escHtml(r.id)}')">💾 บันทึก</button></div>
-        <div class="saved-notes" id="notesSection_${escHtml(r.id)}">
+        <textarea class="form-textarea" id="noteInput_${eid}" placeholder="บันทึก action ที่ดำเนินการ, ผลลัพธ์..."></textarea>
+        <div class="btn-row"><button class="btn btn-primary btn-sm" onclick="saveNote('${eid}')">💾 บันทึก</button></div>
+        <div class="saved-notes" id="notesSection_${eid}">
           <div style="color:var(--text3);font-size:12px">⏳ กำลังโหลด...</div>
         </div>
+      </div>
+      <div class="tab-pane" id="tab-logs">
+        <div id="caseLogsSection_${eid}"><div style="color:var(--text3);font-size:12px">⏳ กำลังโหลด...</div></div>
       </div>
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
   loadModalNotes(id);
+}
+
+function switchModalTab(btn, tabId) {
+  const modal = btn.closest('.modal');
+  modal.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));
+  modal.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  const pane = document.getElementById(tabId);
+  if (pane) pane.classList.add('active');
+}
+
+async function loadCaseLogs(caseId) {
+  const el = document.getElementById('caseLogsSection_'+caseId);
+  if (!el) return;
+  try {
+    const data = await apiFetch('/'+encodeURIComponent(caseId)+'/logs?limit=100');
+    if (!data) return;
+    const logs = data.logs || [];
+    if (!logs.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:10px 0">ยังไม่มีประวัติ</div>'; return; }
+    el.innerHTML = `<table class="log-table">
+      <thead><tr><th>เวลา</th><th>ผู้แก้ไข</th><th>ประเภท</th><th>Field</th><th>ค่าเดิม</th><th>ค่าใหม่</th></tr></thead>
+      <tbody>${logs.map(l=>`<tr>
+        <td style="font-family:var(--mono);color:var(--text3);white-space:nowrap">${new Date(l.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}</td>
+        <td style="font-weight:600;color:var(--accent2)">${escHtml(l.changed_by||'')}</td>
+        <td><span style="font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(59,130,246,.1);color:var(--accent2)">${escHtml(l.action_type||'')}</span></td>
+        <td style="font-family:var(--mono);color:var(--text3)">${escHtml(l.field_name||'')}</td>
+        <td style="color:var(--red2)">${escHtml(l.old_value||'—')}</td>
+        <td style="color:var(--green2)">${escHtml(l.new_value||'—')}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) {
+    if(el) el.innerHTML = `<div style="color:var(--red2);font-size:12px">โหลด log ไม่ได้</div>`;
+  }
 }
 
 async function loadModalNotes(caseId) {
@@ -569,28 +730,38 @@ async function loadModalNotes(caseId) {
 // ══ EDIT MODAL ══
 function openEditModal(id) {
   const r = ALL.find(x=>x.id===id); if(!r) return;
+  const eid = escHtml(r.id);
   const stageOpts=['02สืบทรัพย์','03เตรียมบังคับคดี','04บังคับคดี','05ประนอมหนี้','06ปิดงาน'].map(s=>`<option value="${s}" ${r.hmvad===s?'selected':''}>${s}</option>`).join('');
   const ACTION_LIST=['ตรวจรับรองบัญชี/ขอรับเงิน','บันทึกผลการอายัด','ยื่นอายัดทรัพย์','บันทึกผลการยื่นอายัด','ตรวจอายัดซ้ำ','ออกหมายตั้ง','ส่งคำบังคับ','บันทึกผลส่งคำบังคับ','สืบทรัพย์ใหม่','สืบทรัพย์ที่ดิน','สืบทรัพย์เงินเดือน','สืบทรัพย์บัญชี','ยื่นขอยึดทรัพย์','บันทึกผลขายทอดตลาด','ประนอมหนี้','ปิดงาน'];
   const isCustom = r.action && !ACTION_LIST.includes(r.action);
   const actionOpts = ACTION_LIST.map(a=>`<option value="${a}" ${r.action===a?'selected':''}>${escHtml(a)}</option>`).join('') +
     `<option value="__other__" ${isCustom?'selected':''}>อื่น ๆ (ระบุเอง)</option>`;
   const resultOpts=['ได้เงิน','ไม่ได้เงิน','รอผล',''].map(v=>`<option value="${v}" ${r.result===v?'selected':''}>${v||'— ยังไม่อายัด'}</option>`).join('');
+  // owner list from current data
+  const owners = [...new Set(ALL.map(x=>x.owner).filter(Boolean))].sort();
+  const ownerOpts = owners.map(o=>`<option value="${escHtml(o)}" ${r.owner===o?'selected':''}>${escHtml(o)}</option>`).join('');
+  const invOpts = ['ยังไม่สืบ','พบ','ไม่พบ'].map(v=>`<option value="${v}">`+v+'</option>').join('');
+  const prioTagOpts=['low','medium','high','critical'].map(v=>`<option value="${v}" ${(r.priority_tag||'low')===v?'selected':''}>${v}</option>`).join('');
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-header">
-      <div><div style="font-family:var(--mono);font-size:11px;color:var(--text3)">✏️ แก้ไขเคส</div><div style="font-size:15px;font-weight:700;margin-top:2px">${escHtml(r.id)}</div></div>
+      <div><div style="font-family:var(--mono);font-size:11px;color:var(--text3)">✏️ แก้ไขเคส</div><div style="font-size:15px;font-weight:700;margin-top:2px">${eid}</div></div>
       <button class="modal-close" onclick="closeModal()">×</button>
     </div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" onclick="switchModalTab(this,'etab-action')">⚡ Action</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'etab-case')">📁 ข้อมูลคดี</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'etab-asset')">🔍 สืบทรัพย์</button>
+    </div>
     <div class="modal-body">
-      <div style="margin-bottom:14px">
-        <div class="sec-title">สถานะและ Action</div>
-        <div class="g2">
+      <div class="tab-pane active" id="etab-action">
+        <div class="g2" style="margin-bottom:8px">
           <div class="form-row"><div class="form-label">หมวด</div><select class="form-select" id="e_hmvad">${stageOpts}</select></div>
           <div class="form-row"><div class="form-label">Action</div>
             <select class="form-select" id="e_action_select" onchange="toggleCustomAction()">${actionOpts}</select>
             <input class="form-input" id="e_action_custom" style="margin-top:6px;${isCustom?'':'display:none'}" value="${isCustom?escHtml(r.action):''}" placeholder="พิมพ์ action...">
           </div>
         </div>
-      <div class="g3">
+        <div class="g3" style="margin-bottom:8px">
           <div class="form-row"><div class="form-label">สถานะ Action</div>
             <select class="form-select" id="e_status">
               <option value="" ${!r.action_status?'selected':''}>— ไม่ระบุ</option>
@@ -603,17 +774,64 @@ function openEditModal(id) {
           <div class="form-row"><div class="form-label">Due Date</div><input type="date" class="form-input" id="e_due" value="${r.due_date?r.due_date.substring(0,10):''}"></div>
           <div class="form-row"><div class="form-label">ผลการอายัด</div><select class="form-select" id="e_result">${resultOpts}</select></div>
         </div>
-      </div>
-      <div style="margin-bottom:14px">
-        <div class="sec-title">ข้อมูลการรับเงิน</div>
-        <div class="g2">
+        <div class="g2" style="margin-bottom:8px">
           <div class="form-row"><div class="form-label">จำนวนเงินที่ได้รับ (฿)</div><input type="number" class="form-input" id="e_money" value="${parseFloat(r.money_recv)||''}" step="0.01"></div>
           <div class="form-row"><div class="form-label">ยอดส่งฟ้อง (฿)</div><input type="number" class="form-input" id="e_amount" value="${parseFloat(r.amount)||''}" step="0.01"></div>
         </div>
+        <div class="form-row"><div class="form-label">Next Step</div><input class="form-input" id="e_next_step" value="${escHtml(r.next_step||'')}"></div>
       </div>
-      <div class="btn-row">
-        <button class="btn btn-primary" onclick="saveEdit('${escHtml(r.id)}')">💾 บันทึก</button>
-        <button class="btn btn-ghost" onclick="openModal('${escHtml(r.id)}')">↩ ยกเลิก</button>
+      <div class="tab-pane" id="etab-case">
+        <div class="g2" style="margin-bottom:8px">
+          <div class="form-row"><div class="form-label">เลขที่สำนวน</div><input class="form-input" id="e_sanuan" value="${escHtml(r.sanuan||'')}"></div>
+          <div class="form-row"><div class="form-label">ผู้รับผิดชอบ</div>
+            <select class="form-select" id="e_owner"><option value="">— ไม่ระบุ</option>${ownerOpts}</select>
+          </div>
+        </div>
+        <div class="g3" style="margin-bottom:8px">
+          <div class="form-row"><div class="form-label">ประเภทสินเชื่อ</div>
+            <select class="form-select" id="e_loan_type">
+              ${['สินเชื่อประกันภัย','สินเชื่อส่วนบุคคล','สินเชื่อเช่าซื้อสินค้า','สินเชื่อประกัน'].map(v=>`<option value="${v}" ${r.loan_type===v?'selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row"><div class="form-label">ทรัพย์สิน</div>
+            <select class="form-select" id="e_asset">
+              <option value="มีทรัพย์สิน" ${r.asset==='มีทรัพย์สิน'?'selected':''}>มีทรัพย์สิน</option>
+              <option value="ไม่มีทรัพย์สิน" ${r.asset==='ไม่มีทรัพย์สิน'?'selected':''}>ไม่มีทรัพย์สิน</option>
+            </select>
+          </div>
+          <div class="form-row"><div class="form-label">ส่ง OA</div>
+            <select class="form-select" id="e_send_oa">
+              ${['ทำเอง','ส่ง OA',''].map(v=>`<option value="${v}" ${r.send_oa===v?'selected':''}>${v||'— ไม่ระบุ'}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="form-row"><div class="form-label">Priority (ตัวเลข)</div><input type="number" class="form-input" id="e_priority" value="${r.priority||0}" min="0" max="100"></div>
+          <div class="form-row"><div class="form-label">Priority Tag</div><select class="form-select" id="e_priority_tag">${prioTagOpts}</select></div>
+        </div>
+      </div>
+      <div class="tab-pane" id="etab-asset">
+        <div class="g3">
+          <div class="form-row"><div class="form-label">💼 เงินเดือน</div>
+            <select class="form-select" id="e_salary_result">
+              ${['ยังไม่สืบ','พบ','ไม่พบ'].map(v=>`<option value="${v}" ${(r.salary_result||'ยังไม่สืบ')===v?'selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row"><div class="form-label">🏦 บัญชีธนาคาร</div>
+            <select class="form-select" id="e_bank_result">
+              ${['ยังไม่สืบ','พบ','ไม่พบ'].map(v=>`<option value="${v}" ${(r.bank_result||'ยังไม่สืบ')===v?'selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-row"><div class="form-label">🏠 ที่ดิน</div>
+            <select class="form-select" id="e_land_result">
+              ${['ยังไม่สืบ','พบ','ไม่พบ'].map(v=>`<option value="${v}" ${(r.land_result||'ยังไม่สืบ')===v?'selected':''}>${v}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-primary" onclick="saveEdit('${eid}')">💾 บันทึก</button>
+        <button class="btn btn-ghost" onclick="openModal('${eid}')">↩ ยกเลิก</button>
       </div>
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
@@ -645,6 +863,17 @@ async function saveEdit(id) {
     result: document.getElementById('e_result').value,
     money_recv: newMoney,
     amount: newAmount,
+    next_step: document.getElementById('e_next_step')?.value,
+    sanuan: document.getElementById('e_sanuan')?.value,
+    owner: document.getElementById('e_owner')?.value,
+    loan_type: document.getElementById('e_loan_type')?.value,
+    asset: document.getElementById('e_asset')?.value,
+    send_oa: document.getElementById('e_send_oa')?.value,
+    priority: parseInt(document.getElementById('e_priority')?.value)||0,
+    priority_tag: document.getElementById('e_priority_tag')?.value,
+    salary_result: document.getElementById('e_salary_result')?.value,
+    bank_result: document.getElementById('e_bank_result')?.value,
+    land_result: document.getElementById('e_land_result')?.value,
     changed_by: (getCurrentUser() ? getCurrentUser().display_name : 'user'),
   };
   try {
@@ -663,6 +892,159 @@ async function saveEdit(id) {
 
 async function loadStats() {
   try { const s = await apiFetch('/stats'); renderKPI(s); } catch(_) {}
+}
+
+// ══ PERSON DASHBOARD ══
+async function renderPersonDashboard() {
+  const grid = document.getElementById('personGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div style="color:var(--text3);padding:20px">⏳ กำลังโหลด...</div>';
+  try {
+    const data = await apiFetch('/stats/owners');
+    if (!data) return;
+    const stats = data.stats || [];
+    if (!stats.length) { grid.innerHTML = '<div class="empty"><div style="font-size:36px">👤</div><div>ไม่มีข้อมูล</div></div>'; return; }
+    grid.innerHTML = stats.map(s => {
+      const claimed = parseFloat(s.total_claimed)||0;
+      const recv = parseFloat(s.total_recv)||0;
+      const rate = claimed > 0 ? Math.round(recv/claimed*100) : 0;
+      return `<div class="person-card">
+        <div class="person-name">👤 ${escHtml(s.owner)}</div>
+        <div class="person-stat-row">
+          <div class="pstat"><div class="pstat-num" style="color:var(--accent2)">${s.total}</div><div class="pstat-lbl">คดีทั้งหมด</div></div>
+          <div class="pstat"><div class="pstat-num" style="color:var(--green2)">${s.got_money}</div><div class="pstat-lbl">ได้เงิน</div></div>
+          <div class="pstat"><div class="pstat-num" style="color:${s.overdue>0?'var(--red2)':'var(--text3)'}">${s.overdue}</div><div class="pstat-lbl">เกิน Due</div></div>
+        </div>
+        <div style="margin-bottom:6px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px">
+            <span>Recovery Rate</span><span style="color:var(--green2);font-family:var(--mono)">${rate}%</span>
+          </div>
+          <div class="pbar-wrap"><div class="pbar" style="width:${Math.min(rate,100)}%"></div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3)">
+          <span>ยอดฟ้อง: <span style="color:var(--gold2);font-family:var(--mono)">฿${(claimed/1e6).toFixed(2)}M</span></span>
+          <span>Done: <span style="color:var(--green2);font-family:var(--mono)">${s.done_count}</span></span>
+        </div>
+        <div style="margin-top:8px">
+          <button class="btn btn-ghost btn-sm" style="width:100%" onclick="filterByOwner('${escHtml(s.owner)}')">📋 ดูรายการ</button>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    grid.innerHTML = `<div style="color:var(--red2);padding:20px">โหลดไม่ได้: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function filterByOwner(owner) {
+  document.getElementById('filterOwner').value = owner;
+  setView('table', document.querySelector('.tab-btn'));
+  document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  loadAll(true);
+}
+
+// ══ IMPORT ══
+let importData = [];
+
+function showImportModal() {
+  document.getElementById('importOverlay').classList.add('open');
+}
+
+function handleImportDrop(e) {
+  e.preventDefault();
+  document.getElementById('importDrop').classList.remove('drag');
+  const file = e.dataTransfer.files[0];
+  if (file) processImportFile(file);
+}
+
+function handleImportFile(e) {
+  const file = e.target.files[0];
+  if (file) processImportFile(file);
+}
+
+function processImportFile(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {raw:false, defval:''});
+      importData = rows;
+      showImportPreview(rows);
+    } catch(err) {
+      toast('❌ อ่านไฟล์ไม่ได้: '+err.message,'var(--red)');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showImportPreview(rows) {
+  if (!rows.length) { toast('ไฟล์ว่างเปล่า','var(--orange)'); return; }
+  document.getElementById('importRowCount').textContent = rows.length;
+  const area = document.getElementById('importPreviewArea');
+  area.style.display = 'block';
+  const cols = Object.keys(rows[0]).slice(0, 10);
+  const preview = rows.slice(0, 8);
+  document.getElementById('importPreviewTable').innerHTML = `
+    <table class="preview-table">
+      <thead><tr>${cols.map(c=>`<th>${escHtml(c)}</th>`).join('')}</tr></thead>
+      <tbody>${preview.map(row=>`<tr>${cols.map(c=>`<td>${escHtml(String(row[c]||''))}</td>`).join('')}</tr>`).join('')}</tbody>
+    </table>
+    ${rows.length>8?`<div style="text-align:center;padding:8px;color:var(--text3);font-size:11px">...และอีก ${rows.length-8} แถว</div>`:''}`;
+}
+
+function clearImport() {
+  importData = [];
+  document.getElementById('importPreviewArea').style.display = 'none';
+  document.getElementById('importFileInput').value = '';
+}
+
+async function doImport() {
+  if (!importData.length) return;
+  const btn = document.getElementById('doImportBtn');
+  btn.disabled = true; btn.textContent = '⏳ กำลังนำเข้า...';
+  try {
+    // Map rows to case structure (use field names flexibly)
+    const cases = importData.map(row => {
+      const get = (...keys) => { for (const k of keys) { const v = row[k]??row[k.toLowerCase()]??row[k.toUpperCase()]; if(v!==undefined&&v!=='') return String(v).trim(); } return ''; };
+      return {
+        id: get('id','ID','เลขที่งาน'),
+        sanuan: get('sanuan','สำนวน','เลขที่สำนวน'),
+        owner: get('owner','ผู้รับผิดชอบ'),
+        hmvad: get('hmvad','หมวด'),
+        action: get('action','Action'),
+        next_step: get('next_step','Next Step','next step'),
+        amount: parseFloat(get('amount','ยอดฟ้อง','ยอดส่งฟ้อง'))||0,
+        loan_type: get('loan_type','ประเภทสินเชื่อ'),
+        asset: get('asset','ทรัพย์สิน'),
+        result: get('result','ผลอายัด'),
+        money_recv: parseFloat(get('money_recv','เงินที่ได้'))||0,
+        priority: parseInt(get('priority','Priority'))||0,
+        priority_tag: get('priority_tag','priority tag')||'low',
+        salary_result: get('salary_result','เงินเดือน'),
+        bank_result: get('bank_result','บัญชี'),
+        land_result: get('land_result','ที่ดิน'),
+        send_oa: get('send_oa','ส่ง OA'),
+        action_status: get('action_status','สถานะ'),
+        due_date: get('due_date','Due Date')||null
+      };
+    }).filter(c => c.id);
+
+    if (!cases.length) { toast('ไม่พบคอลัมน์ "id"','var(--orange)'); btn.disabled=false; btn.textContent='✅ นำเข้า'; return; }
+
+    const res = await apiFetch('/import', {method:'POST', body:{cases}});
+    if (res?.ok) {
+      toast(`✅ นำเข้าสำเร็จ ${res.imported} เคส`);
+      document.getElementById('importOverlay').classList.remove('open');
+      clearImport();
+      loadAll(true);
+    } else {
+      toast('❌ '+(res?.error||'เกิดข้อผิดพลาด'),'var(--red)');
+    }
+  } catch(e) {
+    toast('❌ '+e.message,'var(--red)');
+  }
+  btn.disabled = false; btn.textContent = '✅ นำเข้า';
 }
 
 // ══ NOTES ══
@@ -753,15 +1135,17 @@ function setView(v,btn){
   const prev=currentView; currentView=v;
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
-  const va=document.getElementById('viewAdmin');
-  if(v==='admin'){ ['viewTable','viewKanban','viewAction'].forEach(id=>document.getElementById(id)?.classList.add('hidden')); if(va){va.classList.remove('hidden');renderAdminPanel();} return; }
-  if(va) va.classList.add('hidden');
-  ['viewTable','viewKanban','viewAction'].forEach(id=>{ document.getElementById(id).classList.toggle('hidden',!id.includes(v==='table'?'Table':v==='kanban'?'Kanban':'Action')); });
+  const allViews=['viewTable','viewKanban','viewAction','viewPerson','viewAdmin'];
+  allViews.forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add('hidden'); });
+  if(v==='admin'){ const va=document.getElementById('viewAdmin'); if(va){va.classList.remove('hidden');renderAdminPanel();} return; }
+  if(v==='person'){ document.getElementById('viewPerson').classList.remove('hidden'); renderPersonDashboard(); return; }
+  const viewMap={table:'viewTable',kanban:'viewKanban',action:'viewAction'};
+  const el=document.getElementById(viewMap[v]); if(el) el.classList.remove('hidden');
   // kanban/action need all data — reload if we were on paginated table view
   if((v==='kanban'||v==='action') && prev==='table') { loadAll(); return; }
   renderCurrent();
 }
-function renderCurrent(){ if(currentView==='table') renderTable(); else if(currentView==='kanban') renderKanban(); else renderActionPlan(); }
+function renderCurrent(){ if(currentView==='table') renderTable(); else if(currentView==='kanban') renderKanban(); else if(currentView==='action') renderActionPlan(); }
 function closeModal(e){ if(!e||e.target===document.getElementById('modalOverlay')) document.getElementById('modalOverlay').classList.remove('open'); }
 document.addEventListener('keydown',e=>{if(e.key==='Escape') closeModal();});
 

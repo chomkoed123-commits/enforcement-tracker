@@ -105,6 +105,13 @@ async function initDb(sql) {
     created_at TIMESTAMPTZ DEFAULT NOW()
   )`;
  
+  // Indexes for performance
+  await sql`CREATE INDEX IF NOT EXISTS idx_ec_owner ON enforcement_cases(owner)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_ec_hmvad ON enforcement_cases(hmvad)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_ec_action_status ON enforcement_cases(action_status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_ec_due_date ON enforcement_cases(due_date)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_ec_priority ON enforcement_cases(priority DESC)`;
+
   // Create default admin if not exists
   const [existing] = await sql`SELECT id FROM users WHERE username = 'admin'`;
   if (!existing) {
@@ -276,7 +283,14 @@ async function patchCase(sql, id, body, session) {
   if (!before) return { ok: false, error: "Case not found" };
   const fields=[], vals=[], changes={};
   let i=1;
-  const allowed={action_status:"action_status",due_date:"due_date",action:"action",hmvad:"hmvad",result:"result",money_recv:"money_recv",amount:"amount"};
+  const allowed={
+    action_status:"action_status", due_date:"due_date", action:"action", hmvad:"hmvad",
+    result:"result", money_recv:"money_recv", amount:"amount",
+    owner:"owner", loan_type:"loan_type", asset:"asset",
+    salary_result:"salary_result", bank_result:"bank_result", land_result:"land_result",
+    send_oa:"send_oa", next_step:"next_step", sanuan:"sanuan",
+    priority:"priority", priority_tag:"priority_tag"
+  };
   for (const [k,col] of Object.entries(allowed)) {
     if (body[k] !== undefined) {
       const nv = body[k]==="" ? null : body[k];
@@ -312,6 +326,35 @@ async function bulkSeed(sql, body) {
   return { ok:true, inserted:count };
 }
  
+async function getStatsByOwner(sql) {
+  return await sql`
+    SELECT owner,
+      COUNT(*)::int AS total,
+      SUM(amount)::numeric AS total_claimed,
+      SUM(money_recv)::numeric AS total_recv,
+      COUNT(*) FILTER(WHERE result='ได้เงิน')::int AS got_money,
+      COUNT(*) FILTER(WHERE action_status='done')::int AS done_count,
+      COUNT(*) FILTER(WHERE due_date < CURRENT_DATE AND action_status != 'done')::int AS overdue
+    FROM enforcement_cases
+    WHERE owner IS NOT NULL AND owner != ''
+    GROUP BY owner ORDER BY total DESC
+  `;
+}
+
+async function bulkImport(sql, body, session) {
+  const { cases } = body;
+  if (!Array.isArray(cases) || !cases.length) return { ok: false, error: "ไม่มีข้อมูล" };
+  if (cases.length > 500) return { ok: false, error: "นำเข้าได้สูงสุด 500 แถวต่อครั้ง" };
+  let count = 0;
+  for (const c of cases) {
+    if (!c.id) continue;
+    await upsertCase(sql, c);
+    count++;
+  }
+  await writeLog(sql, cases[0]?.id || 'bulk', session.user_id, session.display_name, 'IMPORT', { imported: { old: '0', new: String(count) } }, `นำเข้า ${count} เคส`);
+  return { ok: true, imported: count };
+}
+
 async function getStats(sql) {
   const [row] = await sql`SELECT COUNT(*)::int AS total,SUM(amount)::numeric AS total_claimed,SUM(money_recv)::numeric AS total_recv,COUNT(*) FILTER(WHERE asset='มีทรัพย์สิน')::int AS has_asset,COUNT(*) FILTER(WHERE result='ได้เงิน')::int AS got_money,COUNT(*) FILTER(WHERE result LIKE '%ไม่ได้เงิน%')::int AS no_money,COUNT(*) FILTER(WHERE result='รอผล')::int AS pending,COUNT(*) FILTER(WHERE due_date<CURRENT_DATE AND action_status!='done')::int AS overdue,COUNT(*) FILTER(WHERE action_status='done')::int AS done_count FROM enforcement_cases`;
   const r=parseFloat(row.total_recv)||0,c=parseFloat(row.total_claimed)||1;
@@ -400,9 +443,11 @@ exports.handler = async (event) => {
       return resp(200, await getCases(sql,qs));
     }
     if(method==="GET"  && path==="/stats")           return resp(200,await getStats(sql));
+    if(method==="GET"  && path==="/stats/owners")   return resp(200,{stats:await getStatsByOwner(sql)});
     if(method==="GET"  && path==="/online")          return resp(200,{online:await getOnlineUsers(sql)});
     if(method==="GET"  && path==="/logs")            return resp(200,{logs:await getAllLogs(sql,qs.limit)});
     if(method==="GET"  && path==="/owners")          return resp(200,{owners:await getOwners(sql)});
+    if(method==="POST" && path==="/import")          return resp(200,await bulkImport(sql,body,session));
     if(method==="POST" && (path===""||path==="/"))   return resp(200,await upsertCase(sql,body));
 
     const pm=path.match(/^\/([^/]+)$/);
