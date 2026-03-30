@@ -192,7 +192,70 @@ td.amount.recv{color:var(--green2);}
 ::-webkit-scrollbar{width:5px;height:5px} ::-webkit-scrollbar-track{background:var(--bg2)} ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 .hidden{display:none!important;}
 .empty{text-align:center;padding:50px 20px;color:var(--text3);}
-@media(max-width:768px){.kpi-bar{grid-template-columns:repeat(2,1fr)}.kanban{grid-template-columns:1fr}.info-grid,.g2,.g3{grid-template-columns:1fr}}
+
+/* ══ RESPONSIVE — MOBILE ══ */
+@media(max-width:768px){
+  /* Layout */
+  .main{padding:10px 12px 60px;}
+
+  /* Header */
+  .header{padding:10px 12px;}
+  .header h1{font-size:15px;}
+  .header-top{gap:8px;}
+  .header-right{gap:6px;flex-wrap:wrap;}
+  .header-right .btn{font-size:12px;padding:5px 9px;}
+  .kpi-bar{grid-template-columns:repeat(2,1fr);gap:6px;}
+  .kpi{padding:7px 10px;}
+  .kpi-value{font-size:16px;}
+
+  /* Toolbar — scroll horizontally or wrap */
+  .toolbar{padding:6px 12px;gap:6px;overflow-x:auto;flex-wrap:nowrap;}
+  .toolbar select,.toolbar input[type=date]{font-size:12px;padding:5px 7px;min-width:0;}
+  .search-wrap{min-width:130px;}
+  .count-badge{font-size:11px;padding:5px 8px;white-space:nowrap;flex-shrink:0;}
+  .filter-chips{padding:5px 12px;}
+
+  /* Tabs */
+  .view-tabs{padding:0 8px;overflow-x:auto;flex-wrap:nowrap;}
+  .tab-btn{padding:8px 10px;font-size:12px;white-space:nowrap;}
+
+  /* Table — hide less important columns, make it scrollable */
+  .table-wrap{border-radius:7px;}
+  table{min-width:unset;}
+  th,td{padding:6px 7px;font-size:12px;}
+  /* Hide: สำนวน, เงินที่ได้, ผลอายัด on mobile */
+  th:nth-child(3),td:nth-child(3),
+  th:nth-child(10),td:nth-child(10),
+  th:nth-child(11),td:nth-child(11){display:none;}
+  /* Shrink amount column */
+  td.amount{font-size:11px;}
+
+  /* Kanban */
+  .kanban{grid-template-columns:1fr;}
+  .kanban-cards{max-height:45vh;}
+
+  /* Modal */
+  .modal-overlay{padding:0;align-items:flex-end;}
+  .modal{border-radius:14px 14px 0 0;max-height:92vh;max-width:100%;width:100%;}
+  .modal-header{padding:14px 14px 10px;}
+  .modal-body{padding:12px 14px;}
+  .modal-tabs{padding:0 12px;}
+  .modal-tab{padding:7px 10px;font-size:12px;}
+
+  /* Forms */
+  .info-grid,.g2,.g3{grid-template-columns:1fr;}
+  .btn-row{flex-direction:column;}
+  .btn-row .btn{width:100%;justify-content:center;}
+
+  /* Person grid */
+  .person-grid{grid-template-columns:1fr;}
+
+  /* Add form */
+  .add-form{padding:12px;}
+
+  /* Auth */
+  .auth-box{padding:24px 18px;margin:16px;}
+}
 
 /* FILTER CHIPS */
 .filter-chips{display:flex;gap:6px;padding:6px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;}
