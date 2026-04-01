@@ -344,6 +344,27 @@ td.amount.recv{color:var(--green2);}
 .log-table th{padding:6px 8px;text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;border-bottom:1px solid var(--border2);}
 .log-table td{padding:7px 8px;border-bottom:1px solid var(--border);vertical-align:top;}
 .log-table tr:last-child td{border-bottom:none;}
+/* TIMELINE */
+.timeline{padding:4px 0 8px;}
+.tl-item{display:flex;gap:10px;padding:8px 0;position:relative;}
+.tl-item:not(:last-child)::after{content:'';position:absolute;left:13px;top:34px;bottom:-8px;width:1px;background:var(--border2);}
+.tl-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:1px;}
+.tl-dot.tl-edit{background:rgba(59,130,246,.12);border:1.5px solid rgba(59,130,246,.4);}
+.tl-dot.tl-note{background:rgba(245,158,11,.12);border:1.5px solid rgba(245,158,11,.4);}
+.tl-dot.tl-import{background:rgba(107,114,128,.12);border:1.5px solid var(--border2);}
+.tl-dot.tl-create{background:rgba(16,185,129,.12);border:1.5px solid rgba(16,185,129,.4);}
+.tl-body{flex:1;min-width:0;}
+.tl-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap;}
+.tl-who{font-size:12px;font-weight:600;color:var(--accent2);}
+.tl-time{font-size:11px;color:var(--text3);}
+.tl-note-text{font-size:12px;color:var(--text2);background:var(--bg3);border-radius:6px;padding:7px 10px;margin-top:4px;border-left:3px solid var(--gold);}
+.tl-memo{font-size:12px;color:var(--text3);font-style:italic;margin-top:3px;padding:4px 8px;background:rgba(59,130,246,.05);border-radius:4px;}
+.tl-changes{margin-top:5px;display:flex;flex-direction:column;gap:3px;}
+.tl-change{display:flex;align-items:center;gap:6px;font-size:11px;}
+.tl-field{color:var(--text3);min-width:90px;font-family:var(--mono);flex-shrink:0;}
+.tl-old{color:var(--red2);}
+.tl-new{color:var(--green2);}
+.tl-empty-tl{color:var(--text3);font-size:12px;padding:20px 0;text-align:center;}
 
 /* IMPORT MODAL */
 .import-drop{border:2px dashed var(--border2);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;color:var(--text3);}
@@ -931,7 +952,7 @@ function openModal(id) {
     <div class="modal-tabs">
       <button class="modal-tab active" onclick="switchModalTab(this,'tab-info')">📋 ข้อมูล</button>
       <button class="modal-tab" onclick="switchModalTab(this,'tab-notes')">📒 บันทึก</button>
-      <button class="modal-tab" onclick="switchModalTab(this,'tab-logs');loadCaseLogs('${eid}')">📜 ประวัติ</button>
+      <button class="modal-tab" onclick="switchModalTab(this,'tab-logs');loadCaseTimeline('${eid}')">📅 Timeline</button>
     </div>
     <div class="modal-body">
       <div class="tab-pane active" id="tab-info">
@@ -974,6 +995,7 @@ function openModal(id) {
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
   loadModalNotes(id);
+  loadCaseTimeline(id);
 }
 
 function switchModalTab(btn, tabId) {
@@ -985,27 +1007,104 @@ function switchModalTab(btn, tabId) {
   if (pane) pane.classList.add('active');
 }
 
-async function loadCaseLogs(caseId) {
+async function loadCaseTimeline(caseId) {
   const el = document.getElementById('caseLogsSection_'+caseId);
   if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:8px 0">⏳ กำลังโหลด...</div>';
   try {
-    const data = await apiFetch('/'+encodeURIComponent(caseId)+'/logs?limit=100');
-    if (!data) return;
-    const logs = data.logs || [];
-    if (!logs.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:10px 0">ยังไม่มีประวัติ</div>'; return; }
-    el.innerHTML = `<table class="log-table">
-      <thead><tr><th>เวลา</th><th>ผู้แก้ไข</th><th>ประเภท</th><th>Field</th><th>ค่าเดิม</th><th>ค่าใหม่</th></tr></thead>
-      <tbody>${logs.map(l=>`<tr>
-        <td style="font-family:var(--mono);color:var(--text3);white-space:nowrap">${new Date(l.created_at).toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'})}</td>
-        <td style="font-weight:600;color:var(--accent2)">${escHtml(l.changed_by||'')}</td>
-        <td><span style="font-size:10px;padding:1px 6px;border-radius:3px;background:rgba(59,130,246,.1);color:var(--accent2)">${escHtml(l.action_type||'')}</span></td>
-        <td style="font-family:var(--mono);color:var(--text3)">${escHtml(l.field_name||'')}</td>
-        <td style="color:var(--red2)">${escHtml(l.old_value||'—')}</td>
-        <td style="color:var(--green2)">${escHtml(l.new_value||'—')}</td>
-      </tr>`).join('')}</tbody>
-    </table>`;
-  } catch(e) {
-    if(el) el.innerHTML = `<div style="color:var(--red2);font-size:12px">โหลด log ไม่ได้</div>`;
+    const [logData, noteData] = await Promise.all([
+      apiFetch('/'+encodeURIComponent(caseId)+'/logs?limit=200').catch(()=>null),
+      apiFetch('/'+encodeURIComponent(caseId)+'/notes').catch(()=>null)
+    ]);
+    const logs = (logData?.logs || []);
+    const notes = (noteData?.notes || []);
+
+    // Build unified timeline entries
+    const entries = [];
+
+    // Group action_logs by user+action_type within 30s window
+    const grouped = [];
+    for (const log of logs) {
+      const t = new Date(log.created_at).getTime();
+      const last = grouped[grouped.length - 1];
+      if (last && last.user_id === log.user_id && last.action_type === log.action_type && Math.abs(t - last.t) < 30000) {
+        last.fields.push(log);
+        if (t > last.t) last.t = t;
+        if (log.note && !last.note) last.note = log.note;
+      } else {
+        grouped.push({ t, user_id: log.user_id, display_name: log.changed_by, action_type: log.action_type, note: log.note||'', fields: [log] });
+      }
+    }
+
+    for (const g of grouped) {
+      entries.push({ kind: g.action_type === 'CREATE' ? 'create' : g.action_type === 'IMPORT' ? 'import' : 'edit', t: g.t, who: g.display_name||'', note: g.note, fields: g.fields });
+    }
+    for (const n of notes) {
+      entries.push({ kind: 'note', t: new Date(n.time).getTime(), who: n.user||'', text: n.text });
+    }
+
+    // Sort newest first
+    entries.sort((a, b) => b.t - a.t);
+
+    if (!entries.length) {
+      el.innerHTML = '<div class="tl-empty-tl">ยังไม่มีประวัติ</div>';
+      return;
+    }
+
+    const FIELD_LABELS = {
+      hmvad:'ขั้นตอน', action:'การดำเนินการ', next_step:'ขั้นตอนถัดไป', result:'ผลการสืบทรัพย์',
+      amount:'ยอดส่งฟ้อง', money_recv:'เงินที่ได้รับ', due_date:'กำหนดส่ง', owner:'ผู้รับผิดชอบ',
+      loan_type:'ประเภทสินเชื่อ', work_of:'สถานที่ทำงาน', asset:'ทรัพย์สิน', salary_result:'เงินเดือน',
+      bank_result:'บัญชีธนาคาร', land_result:'ที่ดิน', send_oa:'ส่ง OA', attach_type:'ประเภทอายัด',
+      attach_detail:'รายละเอียดอายัด', charge:'ค่าธรรมเนียม', action_status:'สถานะ', priority_tag:'Priority'
+    };
+
+    const fmtTime = t => {
+      const d = new Date(t);
+      return d.toLocaleString('th-TH', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    };
+
+    const dotClass = { edit:'tl-edit', note:'tl-note', import:'tl-import', create:'tl-create' };
+    const dotIcon  = { edit:'✏️', note:'📝', import:'📥', create:'🆕' };
+
+    const html = entries.map(e => {
+      let inner = '';
+      if (e.kind === 'note') {
+        inner = `<div class="tl-note-text">${escHtml(e.text)}</div>`;
+      } else {
+        // show note/result text if any
+        if (e.note) inner += `<div class="tl-memo">"${escHtml(e.note)}"</div>`;
+        // show field changes (skip internal/system fields)
+        const skip = new Set(['priority','priority_tag','id','created_at','updated_at']);
+        const relevant = e.fields.filter(f => f.field_name && !skip.has(f.field_name) && (f.old_value||f.new_value));
+        if (relevant.length) {
+          inner += `<div class="tl-changes">${relevant.map(f => `
+            <div class="tl-change">
+              <span class="tl-field">${escHtml(FIELD_LABELS[f.field_name]||f.field_name)}</span>
+              <span class="tl-old">${escHtml(f.old_value||'—')}</span>
+              <span style="color:var(--text3)">→</span>
+              <span class="tl-new">${escHtml(f.new_value||'—')}</span>
+            </div>`).join('')}</div>`;
+        }
+        if (!e.note && !relevant.length && e.kind !== 'create') {
+          inner += `<div style="color:var(--text3);font-size:11px;font-style:italic">บันทึกอัตโนมัติ</div>`;
+        }
+      }
+      return `<div class="tl-item">
+        <div class="tl-dot ${dotClass[e.kind]||'tl-edit'}">${dotIcon[e.kind]||'✏️'}</div>
+        <div class="tl-body">
+          <div class="tl-header">
+            <span class="tl-who">${escHtml(e.who||'ระบบ')}</span>
+            <span class="tl-time">${fmtTime(e.t)}</span>
+          </div>
+          ${inner}
+        </div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `<div class="timeline">${html}</div>`;
+  } catch(err) {
+    if (el) el.innerHTML = `<div style="color:var(--red2);font-size:12px">โหลด Timeline ไม่ได้: ${escHtml(err.message)}</div>`;
   }
 }
 
@@ -1131,7 +1230,13 @@ function openEditModal(id) {
           </div>
         </div>
       </div>
-      <div class="btn-row" style="margin-top:14px">
+      <div style="padding:0 0 4px">
+        <div class="form-row" style="margin-top:10px">
+          <div class="form-label">📝 บันทึกผล <span style="color:var(--text3);font-size:10px;font-weight:400">(จะแสดงใน Timeline)</span></div>
+          <textarea class="form-textarea" id="e_note" rows="2" placeholder="บันทึกสิ่งที่ดำเนินการ, ผลที่ได้, หมายเหตุ..."></textarea>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:10px">
         <button class="btn btn-primary" onclick="saveEdit('${eid}')">💾 บันทึก</button>
         <button class="btn btn-ghost" onclick="openModal('${eid}')">↩ ยกเลิก</button>
       </div>
@@ -1176,6 +1281,7 @@ async function saveEdit(id) {
     bank_result: document.getElementById('e_bank_result')?.value,
     land_result: document.getElementById('e_land_result')?.value,
     changed_by: (getCurrentUser() ? getCurrentUser().display_name : 'user'),
+    note: document.getElementById('e_note')?.value?.trim() || '',
   };
   // auto-compute priority_tag from latest values (merge with existing for accuracy)
   const existing = ALL.find(x=>x.id===id)||{};
