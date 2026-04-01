@@ -1111,15 +1111,16 @@ async function saveEdit(id) {
     if(r) Object.assign(r, patch);
     toast('✅ บันทึกแล้ว — ข้อมูลอัพเดทใน Neon');
     closeModal();
-    applyLocalFilters();
-    loadStats();
   } catch(e) {
     toast('❌ บันทึกไม่สำเร็จ: '+e.message, 'var(--red)');
+    return;
   }
+  applyLocalFilters();
+  loadStats();
 }
 
 async function loadStats() {
-  try { const s = await apiFetch('/stats'); renderKPI(s); } catch(_) {}
+  try { const s = await apiFetch('/stats'); if(currentView==='dashboard') renderDashboard(s); } catch(_) {}
 }
 
 // ══ PERSON DASHBOARD ══
