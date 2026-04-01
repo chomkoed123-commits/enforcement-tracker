@@ -1233,7 +1233,12 @@ async function doImport() {
     const normDate = s => {
       if (!s) return null;
       const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+      if (m) {
+        const [_, p1, p2, yr] = m;
+        // If first part > 12 it must be DD/MM/YYYY; otherwise Excel default M/D/YYYY
+        const [mm, dd] = parseInt(p1) > 12 ? [p2, p1] : [p1, p2];
+        return `${yr}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+      }
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
       const d = new Date(s); return isNaN(d) ? null : d.toISOString().split('T')[0];
     };
