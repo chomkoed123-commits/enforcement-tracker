@@ -327,14 +327,14 @@ async function patchCase(sql, id, body, session) {
   if (!fields.length) return { ok: false, error: "No fields" };
   fields.push(`updated_at = NOW()`); vals.push(id);
   await sql(`UPDATE enforcement_cases SET ${fields.join(", ")} WHERE id = $${i}`, vals);
-  await writeLog(sql, id, session.user_id, session.display_name, 'EDIT', changes, body.note||'');
-  await sql`UPDATE user_sessions SET last_seen=NOW() WHERE token=${session.token}`;
+  try { await writeLog(sql, id, session.user_id, session.display_name, 'EDIT', changes, body.note||''); } catch(_) {}
+  try { await sql`UPDATE user_sessions SET last_seen=NOW() WHERE token=${session.token}`; } catch(_) {}
   return { ok: true };
 }
 
 async function addNote(sql, caseId, body, session) {
   const [row] = await sql`INSERT INTO case_notes (case_id,note_text) VALUES (${caseId},${body.text}) RETURNING id,note_text,created_at`;
-  await writeLog(sql, caseId, session.user_id, session.display_name, 'NOTE', { note_text:{old:'',new:body.text} }, body.text);
+  try { await writeLog(sql, caseId, session.user_id, session.display_name, 'NOTE', { note_text:{old:'',new:body.text} }, body.text); } catch(_) {}
   return row;
 }
 

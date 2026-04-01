@@ -1128,10 +1128,6 @@ async function saveEdit(id) {
   }
 }
 
-async function loadStats() {
-  try { const s = await apiFetch('/stats'); renderKPI(s); } catch(_) {}
-}
-
 // ══ PERSON DASHBOARD ══
 async function renderPersonDashboard() {
   const grid = document.getElementById('personGrid');
@@ -1175,8 +1171,8 @@ async function renderPersonDashboard() {
 
 function filterByOwner(owner) {
   document.getElementById('filterOwner').value = owner;
-  setView('table', document.querySelector('.tab-btn'));
-  document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  const tableBtn = [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.includes('ตาราง'));
+  setView('table', tableBtn);
   loadAll(true);
 }
 
@@ -1382,6 +1378,7 @@ async function addCase() {
   try {
     await apiFetch('/', {method:'POST', body:newCase});
     document.getElementById('addFormSection').classList.add('hidden');
+    document.getElementById('addFormSection').innerHTML = '';
     toast('✅ เพิ่มเคสใหม่แล้ว: '+id);
     await loadAll();
   } catch(e) { toast('❌ '+e.message,'var(--red)'); }
