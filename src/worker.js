@@ -210,33 +210,54 @@ async function getOwners(sql) {
 }
 
 async function upsertCase(sql, c) {
-  await sql`INSERT INTO enforcement_cases (id,sanuan,owner,hmvad,action,next_step,amount,loan_type,work_of,asset,result,money_recv,priority,priority_tag,salary_result,bank_result,land_result,send_oa,attach_type,attach_detail,charge,action_status,due_date)
-    VALUES (${c.id},${c.sanuan||''},${c.owner||''},${c.hmvad||''},${c.action||''},${c.next_step||''},${c.amount||0},${c.loan_type||''},${c.work_of||''},${c.asset||''},${c.result||''},${c.money_recv||0},${c.priority||0},${c.priority_tag||'low'},${c.salary_result||''},${c.bank_result||''},${c.land_result||''},${c.send_oa||''},${c.attach_type||''},${c.attach_detail||''},${c.charge||''},${c.action_status||''},${c.due_date||null})
-    ON CONFLICT (id) DO UPDATE SET
-      sanuan=CASE WHEN EXCLUDED.sanuan!='' THEN EXCLUDED.sanuan ELSE enforcement_cases.sanuan END,
-      owner=CASE WHEN EXCLUDED.owner!='' THEN EXCLUDED.owner ELSE enforcement_cases.owner END,
-      hmvad=CASE WHEN EXCLUDED.hmvad!='' THEN EXCLUDED.hmvad ELSE enforcement_cases.hmvad END,
-      action=CASE WHEN EXCLUDED.action!='' THEN EXCLUDED.action ELSE enforcement_cases.action END,
-      next_step=CASE WHEN EXCLUDED.next_step!='' THEN EXCLUDED.next_step ELSE enforcement_cases.next_step END,
-      amount=CASE WHEN EXCLUDED.amount>0 THEN EXCLUDED.amount ELSE enforcement_cases.amount END,
-      loan_type=CASE WHEN EXCLUDED.loan_type!='' THEN EXCLUDED.loan_type ELSE enforcement_cases.loan_type END,
-      work_of=CASE WHEN EXCLUDED.work_of!='' THEN EXCLUDED.work_of ELSE enforcement_cases.work_of END,
-      asset=CASE WHEN EXCLUDED.asset!='' THEN EXCLUDED.asset ELSE enforcement_cases.asset END,
-      result=CASE WHEN EXCLUDED.result!='' THEN EXCLUDED.result ELSE enforcement_cases.result END,
-      money_recv=CASE WHEN EXCLUDED.money_recv>0 THEN EXCLUDED.money_recv ELSE enforcement_cases.money_recv END,
-      priority=CASE WHEN EXCLUDED.priority>0 THEN EXCLUDED.priority ELSE enforcement_cases.priority END,
-      priority_tag=CASE WHEN EXCLUDED.priority_tag IS NOT NULL AND EXCLUDED.priority_tag!='' THEN EXCLUDED.priority_tag ELSE enforcement_cases.priority_tag END,
-      salary_result=CASE WHEN EXCLUDED.salary_result!='' THEN EXCLUDED.salary_result ELSE enforcement_cases.salary_result END,
-      bank_result=CASE WHEN EXCLUDED.bank_result!='' THEN EXCLUDED.bank_result ELSE enforcement_cases.bank_result END,
-      land_result=CASE WHEN EXCLUDED.land_result!='' THEN EXCLUDED.land_result ELSE enforcement_cases.land_result END,
-      send_oa=CASE WHEN EXCLUDED.send_oa!='' THEN EXCLUDED.send_oa ELSE enforcement_cases.send_oa END,
-      attach_type=CASE WHEN EXCLUDED.attach_type!='' THEN EXCLUDED.attach_type ELSE enforcement_cases.attach_type END,
-      attach_detail=CASE WHEN EXCLUDED.attach_detail!='' THEN EXCLUDED.attach_detail ELSE enforcement_cases.attach_detail END,
-      charge=CASE WHEN EXCLUDED.charge!='' THEN EXCLUDED.charge ELSE enforcement_cases.charge END,
-      action_status=CASE WHEN EXCLUDED.action_status!='' THEN EXCLUDED.action_status ELSE enforcement_cases.action_status END,
-      due_date=CASE WHEN EXCLUDED.due_date IS NOT NULL THEN EXCLUDED.due_date ELSE enforcement_cases.due_date END,
-      updated_at=NOW()`;
+  await batchUpsertCases(sql, [c]);
   return { ok: true, id: c.id };
+}
+
+async function batchUpsertCases(sql, cases) {
+  if (!cases.length) return;
+  const params = [];
+  const vals = cases.map(c => {
+    const s = params.length;
+    params.push(
+      c.id, c.sanuan||'', c.owner||'', c.hmvad||'', c.action||'', c.next_step||'',
+      c.amount||0, c.loan_type||'', c.work_of||'', c.asset||'', c.result||'',
+      c.money_recv||0, c.priority||0, c.priority_tag||'low',
+      c.salary_result||'', c.bank_result||'', c.land_result||'',
+      c.send_oa||'', c.attach_type||'', c.attach_detail||'', c.charge||'',
+      c.action_status||'', c.due_date||null
+    );
+    return `($${s+1},$${s+2},$${s+3},$${s+4},$${s+5},$${s+6},$${s+7},$${s+8},$${s+9},$${s+10},$${s+11},$${s+12},$${s+13},$${s+14},$${s+15},$${s+16},$${s+17},$${s+18},$${s+19},$${s+20},$${s+21},$${s+22},$${s+23})`;
+  });
+  await sql(
+    `INSERT INTO enforcement_cases (id,sanuan,owner,hmvad,action,next_step,amount,loan_type,work_of,asset,result,money_recv,priority,priority_tag,salary_result,bank_result,land_result,send_oa,attach_type,attach_detail,charge,action_status,due_date)
+     VALUES ${vals.join(',')}
+     ON CONFLICT (id) DO UPDATE SET
+       sanuan=CASE WHEN EXCLUDED.sanuan!='' THEN EXCLUDED.sanuan ELSE enforcement_cases.sanuan END,
+       owner=CASE WHEN EXCLUDED.owner!='' THEN EXCLUDED.owner ELSE enforcement_cases.owner END,
+       hmvad=CASE WHEN EXCLUDED.hmvad!='' THEN EXCLUDED.hmvad ELSE enforcement_cases.hmvad END,
+       action=CASE WHEN EXCLUDED.action!='' THEN EXCLUDED.action ELSE enforcement_cases.action END,
+       next_step=CASE WHEN EXCLUDED.next_step!='' THEN EXCLUDED.next_step ELSE enforcement_cases.next_step END,
+       amount=CASE WHEN EXCLUDED.amount::numeric>0 THEN EXCLUDED.amount ELSE enforcement_cases.amount END,
+       loan_type=CASE WHEN EXCLUDED.loan_type!='' THEN EXCLUDED.loan_type ELSE enforcement_cases.loan_type END,
+       work_of=CASE WHEN EXCLUDED.work_of!='' THEN EXCLUDED.work_of ELSE enforcement_cases.work_of END,
+       asset=CASE WHEN EXCLUDED.asset!='' THEN EXCLUDED.asset ELSE enforcement_cases.asset END,
+       result=CASE WHEN EXCLUDED.result!='' THEN EXCLUDED.result ELSE enforcement_cases.result END,
+       money_recv=CASE WHEN EXCLUDED.money_recv::numeric>0 THEN EXCLUDED.money_recv ELSE enforcement_cases.money_recv END,
+       priority=CASE WHEN EXCLUDED.priority::int>0 THEN EXCLUDED.priority ELSE enforcement_cases.priority END,
+       priority_tag=CASE WHEN EXCLUDED.priority_tag IS NOT NULL AND EXCLUDED.priority_tag!='' THEN EXCLUDED.priority_tag ELSE enforcement_cases.priority_tag END,
+       salary_result=CASE WHEN EXCLUDED.salary_result!='' THEN EXCLUDED.salary_result ELSE enforcement_cases.salary_result END,
+       bank_result=CASE WHEN EXCLUDED.bank_result!='' THEN EXCLUDED.bank_result ELSE enforcement_cases.bank_result END,
+       land_result=CASE WHEN EXCLUDED.land_result!='' THEN EXCLUDED.land_result ELSE enforcement_cases.land_result END,
+       send_oa=CASE WHEN EXCLUDED.send_oa!='' THEN EXCLUDED.send_oa ELSE enforcement_cases.send_oa END,
+       attach_type=CASE WHEN EXCLUDED.attach_type!='' THEN EXCLUDED.attach_type ELSE enforcement_cases.attach_type END,
+       attach_detail=CASE WHEN EXCLUDED.attach_detail!='' THEN EXCLUDED.attach_detail ELSE enforcement_cases.attach_detail END,
+       charge=CASE WHEN EXCLUDED.charge!='' THEN EXCLUDED.charge ELSE enforcement_cases.charge END,
+       action_status=CASE WHEN EXCLUDED.action_status!='' THEN EXCLUDED.action_status ELSE enforcement_cases.action_status END,
+       due_date=CASE WHEN EXCLUDED.due_date IS NOT NULL THEN EXCLUDED.due_date ELSE enforcement_cases.due_date END,
+       updated_at=NOW()`,
+    params
+  );
 }
 
 async function getStatsByOwner(sql) {
@@ -257,26 +278,29 @@ async function getStatsByOwner(sql) {
 async function bulkImport(sql, body, session) {
   const { cases } = body;
   if (!Array.isArray(cases) || !cases.length) return { ok: false, error: "ไม่มีข้อมูล" };
-  if (cases.length > 500) return { ok: false, error: "นำเข้าได้สูงสุด 500 แถวต่อครั้ง" };
+  if (cases.length > 2000) return { ok: false, error: "นำเข้าได้สูงสุด 2,000 แถวต่อครั้ง" };
+  const validCases = cases.filter(c => c.id);
+  if (!validCases.length) return { ok: false, error: "ไม่พบ id ในข้อมูล" };
+  const BATCH = 50;
   let count = 0, errorCount = 0, firstErr = '';
-  const firstId = cases.find(c => c.id)?.id;
-  for (const c of cases) {
-    if (!c.id) continue;
+  for (let i = 0; i < validCases.length; i += BATCH) {
+    const chunk = validCases.slice(i, i + BATCH);
     try {
-      await upsertCase(sql, c);
-      count++;
+      await batchUpsertCases(sql, chunk);
+      count += chunk.length;
     } catch(e) {
-      errorCount++;
-      if (!firstErr) firstErr = `${c.id}: ${e.message}`;
-      console.error(`Import row ${c.id}: ${e.message}`);
+      // fallback: try one by one to skip bad rows
+      for (const c of chunk) {
+        try { await batchUpsertCases(sql, [c]); count++; }
+        catch(e2) { errorCount++; if (!firstErr) firstErr = `${c.id}: ${e2.message}`; }
+      }
     }
   }
   if (count === 0) return { ok: false, error: `นำเข้าไม่สำเร็จ — ${firstErr}` };
-  if (firstId) {
-    try {
-      await writeLog(sql, firstId, session.user_id, session.display_name, 'IMPORT', { imported: { old: '0', new: String(count) } }, `นำเข้า ${count} เคส`);
-    } catch(_) {}
-  }
+  try {
+    await writeLog(sql, validCases[0].id, session.user_id, session.display_name, 'IMPORT',
+      { imported: { old: '0', new: String(count) } }, `นำเข้า ${count} เคส`);
+  } catch(_) {}
   return { ok: true, imported: count, errors: errorCount };
 }
 
