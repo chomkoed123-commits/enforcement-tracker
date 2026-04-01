@@ -258,14 +258,26 @@ async function bulkImport(sql, body, session) {
   const { cases } = body;
   if (!Array.isArray(cases) || !cases.length) return { ok: false, error: "ไม่มีข้อมูล" };
   if (cases.length > 500) return { ok: false, error: "นำเข้าได้สูงสุด 500 แถวต่อครั้ง" };
-  let count = 0;
+  let count = 0, errorCount = 0, firstErr = '';
+  const firstId = cases.find(c => c.id)?.id;
   for (const c of cases) {
     if (!c.id) continue;
-    await upsertCase(sql, c);
-    count++;
+    try {
+      await upsertCase(sql, c);
+      count++;
+    } catch(e) {
+      errorCount++;
+      if (!firstErr) firstErr = `${c.id}: ${e.message}`;
+      console.error(`Import row ${c.id}: ${e.message}`);
+    }
   }
-  await writeLog(sql, cases[0]?.id || 'bulk', session.user_id, session.display_name, 'IMPORT', { imported: { old: '0', new: String(count) } }, `นำเข้า ${count} เคส`);
-  return { ok: true, imported: count };
+  if (count === 0) return { ok: false, error: `นำเข้าไม่สำเร็จ — ${firstErr}` };
+  if (firstId) {
+    try {
+      await writeLog(sql, firstId, session.user_id, session.display_name, 'IMPORT', { imported: { old: '0', new: String(count) } }, `นำเข้า ${count} เคส`);
+    } catch(_) {}
+  }
+  return { ok: true, imported: count, errors: errorCount };
 }
 
 async function patchCase(sql, id, body, session) {
