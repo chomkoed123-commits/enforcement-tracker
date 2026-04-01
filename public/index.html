@@ -1234,6 +1234,20 @@ async function doImport() {
   btn.disabled = true; btn.textContent = '⏳ กำลังนำเข้า...';
   try {
     // Map rows to case structure (use field names flexibly)
+    // Parse number: strip commas/spaces before parseFloat
+    const parseNum = s => parseFloat(String(s).replace(/,/g,'').trim())||0;
+    // Normalize date to YYYY-MM-DD; handles DD/MM/YYYY and M/D/YYYY
+    const normDate = s => {
+      if (!s) return null;
+      // DD/MM/YYYY or D/M/YYYY (Thai format)
+      let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+      // Already YYYY-MM-DD
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+      // Fallback: let Date parse it
+      const d = new Date(s);
+      return isNaN(d) ? null : d.toISOString().split('T')[0];
+    };
     const cases = importData.map(row => {
       const get = (...keys) => { for (const k of keys) { const v = row[k]??row[k.toLowerCase()]??row[k.toUpperCase()]; if(v!==undefined&&v!=='') return String(v).trim(); } return ''; };
       return {
@@ -1243,19 +1257,19 @@ async function doImport() {
         hmvad: get('hmvad','หมวด'),
         action: get('action','Action'),
         next_step: get('next_step','Next Step','next step'),
-        amount: parseFloat(get('amount','ยอดฟ้อง','ยอดส่งฟ้อง'))||0,
+        amount: parseNum(get('amount','ยอดฟ้อง','ยอดส่งฟ้อง')),
         loan_type: get('loan_type','ประเภทสินเชื่อ'),
         asset: get('asset','ทรัพย์สิน'),
         result: get('result','ผลอายัด'),
-        money_recv: parseFloat(get('money_recv','เงินที่ได้'))||0,
+        money_recv: parseNum(get('money_recv','เงินที่ได้')),
         priority: parseInt(get('priority','Priority'))||0,
-        priority_tag: get('priority_tag','priority tag')||'low',
+        priority_tag: get('priority_tag','priority tag')||'',
         salary_result: get('salary_result','เงินเดือน'),
         bank_result: get('bank_result','บัญชี'),
         land_result: get('land_result','ที่ดิน'),
         send_oa: get('send_oa','ส่ง OA'),
         action_status: get('action_status','สถานะ'),
-        due_date: get('due_date','Due Date')||null
+        due_date: normDate(get('due_date','Due Date'))
       };
     }).filter(c => c.id);
 
@@ -1263,7 +1277,8 @@ async function doImport() {
 
     const res = await apiFetch('/import', {method:'POST', body:{cases}});
     if (res?.ok) {
-      toast(`✅ นำเข้าสำเร็จ ${res.imported} เคส`);
+      const errNote = res.errors > 0 ? ` (ข้ามไป ${res.errors} แถวที่มีปัญหา)` : '';
+      toast(`✅ นำเข้าสำเร็จ ${res.imported} เคส${errNote}`);
       document.getElementById('importOverlay').classList.remove('open');
       clearImport();
       loadAll(true);
