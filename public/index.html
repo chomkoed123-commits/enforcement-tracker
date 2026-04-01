@@ -442,7 +442,11 @@ async function apiFetch(path, opts={}) {
     body: opts.body ? JSON.stringify(opts.body) : undefined
   });
   if (r.status === 401) { showLoginScreen(); return null; }
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try { const d = await r.json(); if (d?.error) msg = d.error; } catch(_) {}
+    throw new Error(msg);
+  }
   return r.json();
 }
 

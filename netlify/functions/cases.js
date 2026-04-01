@@ -346,12 +346,15 @@ async function bulkImport(sql, body, session) {
   if (!Array.isArray(cases) || !cases.length) return { ok: false, error: "ไม่มีข้อมูล" };
   if (cases.length > 500) return { ok: false, error: "นำเข้าได้สูงสุด 500 แถวต่อครั้ง" };
   let count = 0;
+  const firstId = cases.find(c => c.id)?.id;
   for (const c of cases) {
     if (!c.id) continue;
     await upsertCase(sql, c);
     count++;
   }
-  await writeLog(sql, cases[0]?.id || 'bulk', session.user_id, session.display_name, 'IMPORT', { imported: { old: '0', new: String(count) } }, `นำเข้า ${count} เคส`);
+  if (firstId) {
+    await writeLog(sql, firstId, session.user_id, session.display_name, 'IMPORT', { imported: { old: '0', new: String(count) } }, `นำเข้า ${count} เคส`);
+  }
   return { ok: true, imported: count };
 }
 
