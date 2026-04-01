@@ -431,6 +431,18 @@ const PAGE_SIZE = 50;
 // ══ SECURITY ══
 function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+// ══ PRIORITY SEGMENTATION ══
+function calcPriorityTag(c) {
+  const amt = parseFloat(c.amount) || 0;
+  const hasAsset = [c.salary_result, c.bank_result, c.land_result]
+    .some(v => { const s = (v||'').trim(); return s && s !== '-' && s !== 'ไม่พบ'; });
+  if (amt > 15000 && hasAsset) return 'high';
+  if (amt > 50000) return 'high';
+  if (amt >= 30000 && amt <= 50000 && !hasAsset) return 'medium';
+  if (amt > 0 && hasAsset) return 'medium';
+  return 'low';
+}
+
 // ══ API ══
 function getToken() { return localStorage.getItem('session_token')||''; }
 function getCurrentUser() { try{ return JSON.parse(localStorage.getItem('current_user')||'null'); }catch(_){return null;} }
@@ -720,7 +732,7 @@ function renderTable() {
   if(!filtered.length){ tb.innerHTML='<tr><td colspan="12"><div class="empty"><div style="font-size:36px">📂</div><div>ไม่พบข้อมูล — ลองล้างตัวกรอง</div></div></td></tr>'; renderPagination(); return; }
   tb.innerHTML = filtered.map(r => `
     <tr class="${isOverdue(r)?'overdue-row':''}" onclick="openModal('${escHtml(r.id)}')">
-      <td><span class="dot ${escHtml(r.priority_tag)}" style="margin-right:4px"></span><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${escHtml(r.priority)}</span></td>
+      <td><span class="dot ${calcPriorityTag(r)}" style="margin-right:4px"></span><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${escHtml(calcPriorityTag(r))}</span></td>
       <td class="mono-cell">${escHtml(r.id)}</td>
       <td class="mono-cell">${escHtml(r.sanuan)}</td>
       <td>${escHtml(r.owner)}</td>
@@ -1031,7 +1043,7 @@ function openEditModal(id) {
         </div>
         <div class="g2">
           <div class="form-row"><div class="form-label">Priority (ตัวเลข)</div><input type="number" class="form-input" id="e_priority" value="${r.priority||0}" min="0" max="100"></div>
-          <div class="form-row"><div class="form-label">Priority Tag</div><select class="form-select" id="e_priority_tag">${prioTagOpts}</select></div>
+          <div class="form-row"><div class="form-label">Priority Tag</div><div style="padding:6px 10px;background:var(--bg3);border-radius:6px;font-size:13px"><span class="dot ${calcPriorityTag(r)}" style="margin-right:6px"></span><strong>${calcPriorityTag(r)}</strong> <span style="color:var(--text3);font-size:11px">(คำนวณอัตโนมัติ)</span></div></div>
         </div>
       </div>
       <div class="tab-pane" id="etab-asset">
@@ -1094,12 +1106,14 @@ async function saveEdit(id) {
     asset: document.getElementById('e_asset')?.value,
     send_oa: document.getElementById('e_send_oa')?.value,
     priority: parseInt(document.getElementById('e_priority')?.value)||0,
-    priority_tag: document.getElementById('e_priority_tag')?.value,
     salary_result: document.getElementById('e_salary_result')?.value,
     bank_result: document.getElementById('e_bank_result')?.value,
     land_result: document.getElementById('e_land_result')?.value,
     changed_by: (getCurrentUser() ? getCurrentUser().display_name : 'user'),
   };
+  // auto-compute priority_tag from latest values (merge with existing for accuracy)
+  const existing = ALL.find(x=>x.id===id)||{};
+  patch.priority_tag = calcPriorityTag({...existing, ...patch});
   try {
     await apiFetch('/'+encodeURIComponent(id), {method:'PUT', body:patch});
     // Update local cache
@@ -1257,7 +1271,6 @@ async function doImport() {
         result: get('result','ผลอายัด'),
         money_recv: parseNum(get('money_recv','เงินที่ได้')),
         priority: parseInt(get('priority','Priority'))||0,
-        priority_tag: get('priority_tag','priority tag')||'',
         salary_result: get('salary_result','เงินเดือน'),
         bank_result: get('bank_result','บัญชี'),
         land_result: get('land_result','ที่ดิน'),
@@ -1265,7 +1278,7 @@ async function doImport() {
         action_status: get('action_status','สถานะ'),
         due_date: normDate(get('due_date','Due Date'))
       };
-    }).filter(c => c.id);
+    }).map(c => ({ ...c, priority_tag: calcPriorityTag(c) })).filter(c => c.id);
 
     if (!cases.length) { toast('ไม่พบคอลัมน์ "id"','var(--orange)'); btn.disabled=false; btn.textContent='✅ นำเข้า'; return; }
 
@@ -1352,11 +1365,11 @@ async function addCase() {
     work_of:'LK', send_oa:'ทำเอง',
     result:'', money_recv:0,
     priority:Math.round(Math.min(amt/10000,50)+(document.getElementById('n_asset').value==='มีทรัพย์สิน'?30:0)),
-    priority_tag:amt>50000?'high':amt>20000?'medium':'low',
     action_status:'pending',
     due_date:document.getElementById('n_due').value||null,
     salary_result:'', bank_result:'', land_result:'', charge:''
   };
+  newCase.priority_tag = calcPriorityTag(newCase);
   try {
     await apiFetch('/', {method:'POST', body:newCase});
     document.getElementById('addFormSection').classList.add('hidden');
@@ -1405,8 +1418,8 @@ async function loadOwners() {
 }
 
 function exportCSV(){
-  const h=['เลขที่งาน','สำนวน','ผู้รับผิดชอบ','หมวด','Action','สถานะ','Due Date','ยอดฟ้อง','เงินที่ได้','ผลอายัด'];
-  const rows=filtered.map(r=>[r.id,r.sanuan,r.owner,r.hmvad,r.action,r.action_status,r.due_date||'',r.amount,r.money_recv,r.result].join(','));
+  const h=['เลขที่งาน','สำนวน','ผู้รับผิดชอบ','หมวด','Action','สถานะ','Due Date','ยอดฟ้อง','เงินที่ได้','ผลอายัด','Priority'];
+  const rows=filtered.map(r=>[r.id,r.sanuan,r.owner,r.hmvad,r.action,r.action_status,r.due_date||'',r.amount,r.money_recv,r.result,calcPriorityTag(r)].join(','));
   const blob=new Blob(['\uFEFF'+[h.join(','),...rows].join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='enforcement_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
 }
