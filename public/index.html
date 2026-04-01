@@ -1218,12 +1218,21 @@ function processImportFile(file) {
 
 function showImportPreview(rows) {
   if (!rows.length) { toast('ไฟล์ว่างเปล่า','var(--orange)'); return; }
+  // Count rows that will actually be imported (have an id field)
+  const idKeys = ['id','ID','เลขที่งาน'];
+  const withId = rows.filter(r => idKeys.some(k => r[k]!==undefined && r[k]!==''));
+  const detectedCols = Object.keys(rows[0]);
   document.getElementById('importRowCount').textContent = rows.length;
   const area = document.getElementById('importPreviewArea');
   area.style.display = 'block';
-  const cols = Object.keys(rows[0]).slice(0, 10);
+  const cols = detectedCols.slice(0, 10);
   const preview = rows.slice(0, 8);
   document.getElementById('importPreviewTable').innerHTML = `
+    <div style="font-size:12px;padding:6px 0;color:${withId.length<rows.length?'var(--orange)':'var(--green)'}">
+      🔍 คอลัมน์ที่พบ: <strong>${detectedCols.join(', ')}</strong><br>
+      ✅ แถวที่มี ID (จะนำเข้า): <strong>${withId.length}</strong> / ${rows.length} แถว
+      ${withId.length<rows.length?`<span style="color:var(--orange)"> — ${rows.length-withId.length} แถวไม่มี ID จะถูกข้าม</span>`:''}
+    </div>
     <table class="preview-table">
       <thead><tr>${cols.map(c=>`<th>${escHtml(c)}</th>`).join('')}</tr></thead>
       <tbody>${preview.map(row=>`<tr>${cols.map(c=>`<td>${escHtml(String(row[c]||''))}</td>`).join('')}</tr>`).join('')}</tbody>
