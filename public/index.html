@@ -1042,8 +1042,7 @@ function openEditModal(id) {
           </div>
         </div>
         <div class="g2">
-          <div class="form-row"><div class="form-label">Priority (ตัวเลข)</div><input type="number" class="form-input" id="e_priority" value="${r.priority||0}" min="0" max="100"></div>
-          <div class="form-row"><div class="form-label">Priority Tag</div><div style="padding:6px 10px;background:var(--bg3);border-radius:6px;font-size:13px"><span class="dot ${calcPriorityTag(r)}" style="margin-right:6px"></span><strong>${calcPriorityTag(r)}</strong> <span style="color:var(--text3);font-size:11px">(คำนวณอัตโนมัติ)</span></div></div>
+          <div class="form-row"><div class="form-label">Priority</div><div style="padding:6px 10px;background:var(--bg3);border-radius:6px;font-size:13px"><span class="dot ${calcPriorityTag(r)}" style="margin-right:6px"></span><strong>${calcPriorityTag(r).toUpperCase()}</strong> <span style="color:var(--text3);font-size:11px">(คำนวณจากยอดฟ้อง + ทรัพย์สิน)</span></div></div>
         </div>
       </div>
       <div class="tab-pane" id="etab-asset">
@@ -1105,7 +1104,7 @@ async function saveEdit(id) {
     loan_type: document.getElementById('e_loan_type')?.value,
     asset: document.getElementById('e_asset')?.value,
     send_oa: document.getElementById('e_send_oa')?.value,
-    priority: parseInt(document.getElementById('e_priority')?.value)||0,
+    priority: {'low':1,'medium':2,'high':3}[calcPriorityTag({...ALL.find(x=>x.id===id)||{}, amount:newAmount, salary_result:document.getElementById('e_salary_result')?.value, bank_result:document.getElementById('e_bank_result')?.value, land_result:document.getElementById('e_land_result')?.value})]||0,
     salary_result: document.getElementById('e_salary_result')?.value,
     bank_result: document.getElementById('e_bank_result')?.value,
     land_result: document.getElementById('e_land_result')?.value,
@@ -1251,15 +1250,23 @@ async function doImport() {
     const parseNum = s => parseFloat(String(s).replace(/,/g,'').trim())||0;
     const normDate = s => {
       if (!s) return null;
+      // Handle M/D/YYYY or DD/MM/YYYY
       const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if (m) {
         const [_, p1, p2, yr] = m;
-        // If first part > 12 it must be DD/MM/YYYY; otherwise Excel default M/D/YYYY
         const [mm, dd] = parseInt(p1) > 12 ? [p2, p1] : [p1, p2];
         return `${yr}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
       }
+      // Already YYYY-MM-DD
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-      const d = new Date(s); return isNaN(d) ? null : d.toISOString().split('T')[0];
+      // ISO datetime string (e.g. "2026-03-31T00:00:00") — extract date part directly
+      const iso = s.match(/^(\d{4}-\d{2}-\d{2})T/);
+      if (iso) return iso[1];
+      // Fallback: parse and convert to UTC date string to avoid timezone shift
+      const d = new Date(s);
+      if (isNaN(d)) return null;
+      const yyyy = d.getFullYear(), mo = String(d.getMonth()+1).padStart(2,'0'), dd2 = String(d.getDate()).padStart(2,'0');
+      return `${yyyy}-${mo}-${dd2}`;
     };
     const cases = importData.map(row => {
       const get = (...keys) => { for (const k of keys) { const v = row[k]??row[k.toLowerCase()]??row[k.toUpperCase()]; if(v!==undefined&&v!=='') return String(v).trim(); } return ''; };
@@ -1369,12 +1376,12 @@ async function addCase() {
     asset:document.getElementById('n_asset').value,
     work_of:'LK', send_oa:'ทำเอง',
     result:'', money_recv:0,
-    priority:Math.round(Math.min(amt/10000,50)+(document.getElementById('n_asset').value==='มีทรัพย์สิน'?30:0)),
     action_status:'pending',
     due_date:document.getElementById('n_due').value||null,
     salary_result:'', bank_result:'', land_result:'', charge:''
   };
   newCase.priority_tag = calcPriorityTag(newCase);
+  newCase.priority = {'low':1,'medium':2,'high':3}[newCase.priority_tag]||0;
   try {
     await apiFetch('/', {method:'POST', body:newCase});
     document.getElementById('addFormSection').classList.add('hidden');
@@ -1393,6 +1400,7 @@ function setView(v,btn){
   if(btn) btn.classList.add('active');
   const allViews=['viewDashboard','viewTable','viewKanban','viewAction','viewPerson','viewAdmin'];
   allViews.forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.add('hidden'); });
+  if (v !== 'admin' && window._onlineTimer) { clearInterval(window._onlineTimer); window._onlineTimer = null; }
   if(v==='admin'){ const va=document.getElementById('viewAdmin'); if(va){va.classList.remove('hidden');renderAdminPanel();} return; }
   if(v==='person'){ document.getElementById('viewPerson').classList.remove('hidden'); renderPersonDashboard(); return; }
   if(v==='dashboard'){ document.getElementById('viewDashboard').classList.remove('hidden'); renderDashboard(); return; }
