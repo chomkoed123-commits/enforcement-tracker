@@ -34,23 +34,54 @@ body{font-family:'IBM Plex Sans Thai',sans-serif;background:var(--bg);color:var(
 .sync-status.loading{color:var(--gold2);border-color:rgba(245,158,11,.4);}
 
 /* DASHBOARD */
-.db-kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.db-section{margin-bottom:20px;}
+.db-section-title{font-size:13px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.db-kpi-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px;}
 .db-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;position:relative;overflow:hidden;cursor:default;}
 .db-kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
 .db-kpi.blue::before{background:var(--accent)} .db-kpi.gold::before{background:var(--gold)}
 .db-kpi.green::before{background:var(--green)} .db-kpi.red::before{background:var(--red)}
 .db-kpi.purple::before{background:var(--purple)}
-.db-kpi-icon{font-size:22px;margin-bottom:6px;}
+.db-kpi-icon{font-size:20px;margin-bottom:4px;}
 .db-kpi-label{font-size:11px;color:var(--text3);margin-bottom:3px;}
-.db-kpi-value{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1;}
+.db-kpi-value{font-family:var(--mono);font-size:22px;font-weight:700;line-height:1;}
 .db-kpi-sub{font-size:11px;color:var(--text3);margin-top:3px;}
 .db-kpi.blue .db-kpi-value{color:var(--accent2)} .db-kpi.gold .db-kpi-value{color:var(--gold2)}
 .db-kpi.green .db-kpi-value{color:var(--green2)} .db-kpi.red .db-kpi-value{color:var(--red2)}
 .db-kpi.purple .db-kpi-value{color:var(--purple)}
-.db-charts-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+.db-mid-row{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-bottom:16px;}
 .db-chart-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;}
-.db-chart-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:14px;display:flex;align-items:center;gap:6px;}
-.db-bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.db-chart-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.db-owner-table{width:100%;border-collapse:collapse;}
+.db-owner-table th{font-size:10px;color:var(--text3);font-weight:600;padding:4px 6px;text-align:left;border-bottom:1px solid var(--border);}
+.db-owner-table td{font-size:12px;padding:6px 6px;border-bottom:1px solid var(--border2);}
+.db-owner-table tr:last-child td{border-bottom:none;}
+.db-owner-table tr:hover td{background:rgba(59,130,246,.05);}
+.db-bar-cell{min-width:80px;}
+.db-bar-wrap{background:var(--bg3);border-radius:3px;height:5px;}
+.db-bar{height:5px;border-radius:3px;}
+.db-action-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.db-action-col{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;min-height:200px;}
+.db-action-col.col-red{border-top:3px solid var(--red);}
+.db-action-col.col-orange{border-top:3px solid var(--gold);}
+.db-action-col.col-blue{border-top:3px solid var(--accent);}
+.db-action-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.db-action-title{font-size:13px;font-weight:700;}
+.db-action-count{font-family:var(--mono);font-size:12px;padding:2px 7px;border-radius:10px;font-weight:600;}
+.col-red .db-action-count{background:rgba(239,68,68,.15);color:var(--red2);}
+.col-orange .db-action-count{background:rgba(245,158,11,.15);color:var(--gold2);}
+.col-blue .db-action-count{background:rgba(59,130,246,.15);color:var(--accent2);}
+.db-action-item{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border2);cursor:pointer;}
+.db-action-item:last-child{border-bottom:none;}
+.db-action-item:hover{background:rgba(255,255,255,.03);margin:0 -6px;padding:7px 6px;border-radius:6px;}
+.db-ai-id{font-family:var(--mono);font-size:10px;color:var(--text3);white-space:nowrap;}
+.db-ai-body{flex:1;min-width:0;}
+.db-ai-owner{font-size:10px;color:var(--text3);}
+.db-ai-action{font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-ai-right{text-align:right;flex-shrink:0;}
+.db-ai-amt{font-family:var(--mono);font-size:11px;color:var(--gold2);}
+.db-ai-due{font-size:10px;color:var(--red2);}
+.db-empty{color:var(--text3);font-size:12px;padding:16px 0;text-align:center;}
 .db-list-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px;}
 .db-list-title{font-size:13px;font-weight:700;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:6px;}
 .db-list-item{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;}
@@ -227,8 +258,8 @@ td.amount.recv{color:var(--green2);}
 
   /* Dashboard */
   .db-kpi-row{grid-template-columns:repeat(2,1fr);gap:8px;}
-  .db-kpi-value{font-size:20px;}
-  .db-charts-row,.db-bottom-row{grid-template-columns:1fr;}
+  .db-kpi-value{font-size:18px;}
+  .db-mid-row,.db-action-row{grid-template-columns:1fr;}
 
   /* Toolbar — scroll horizontally or wrap */
   .toolbar{padding:6px 12px;gap:6px;overflow-x:auto;flex-wrap:nowrap;}
@@ -581,116 +612,167 @@ async function renderDashboard(statsArg) {
   const el = document.getElementById('viewDashboard');
   if (!el) return;
 
-  // Fetch stats if not passed in
   let s = statsArg;
-  if (!s) {
-    try { s = await apiFetch('/stats'); } catch(_) { return; }
-  }
+  if (!s) { try { s = await apiFetch('/stats'); } catch(_) { return; } }
   if (!s) return;
 
   const claimed = parseFloat(s.total_claimed)||0;
   const recv    = parseFloat(s.total_recv)||0;
 
-  // Stage counts from ALL data
+  // ── Computed data ─────────────────────────────────────────────────────────
   const stageCounts = {'02สืบทรัพย์':0,'03เตรียมบังคับคดี':0,'04บังคับคดี':0,'05ประนอมหนี้':0,'06ปิดงาน':0};
-  const resultCounts = {'ได้เงิน':0,'ไม่ได้เงิน':0,'รอผล':0,'ไม่ระบุ':0};
-  ALL.forEach(r => {
-    if (stageCounts[r.hmvad] !== undefined) stageCounts[r.hmvad]++;
-    const rk = ['ได้เงิน','ไม่ได้เงิน','รอผล'].includes(r.result) ? r.result : 'ไม่ระบุ';
-    resultCounts[rk]++;
-  });
+  ALL.forEach(r => { if (stageCounts[r.hmvad] !== undefined) stageCounts[r.hmvad]++; });
 
-  // Top 5 overdue high-value cases
-  const urgentCases = [...ALL]
-    .filter(r => isOverdue(r))
+  const now = new Date(); now.setHours(0,0,0,0);
+  const in7 = new Date(now); in7.setDate(in7.getDate()+7);
+
+  const overdueCases = [...ALL]
+    .filter(r => r.action_status !== 'done' && r.due_date && new Date(r.due_date) < now)
+    .sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
+
+  const dueSoonCases = [...ALL]
+    .filter(r => r.action_status !== 'done' && r.due_date && new Date(r.due_date) >= now && new Date(r.due_date) <= in7)
+    .sort((a,b) => new Date(a.due_date) - new Date(b.due_date));
+
+  const highPendingCases = [...ALL]
+    .filter(r => r.action_status !== 'done' && calcPriorityTag(r) === 'high')
     .sort((a,b) => parseFloat(b.amount||0) - parseFloat(a.amount||0))
-    .slice(0,5);
+    .slice(0, 10);
 
-  // Top 5 high-value pending cases
-  const bigPending = [...ALL]
-    .filter(r => r.action_status !== 'done')
-    .sort((a,b) => parseFloat(b.amount||0) - parseFloat(a.amount||0))
-    .slice(0,5);
-
-  // Per-owner summary from local data
+  // Per-owner stats
   const ownerMap = {};
   ALL.forEach(r => {
     if (!r.owner) return;
-    if (!ownerMap[r.owner]) ownerMap[r.owner] = {total:0, done:0};
+    if (!ownerMap[r.owner]) ownerMap[r.owner] = {total:0, done:0, overdue:0, recv:0};
     ownerMap[r.owner].total++;
     if (r.action_status === 'done') ownerMap[r.owner].done++;
+    if (r.action_status !== 'done' && r.due_date && new Date(r.due_date) < now) ownerMap[r.owner].overdue++;
+    ownerMap[r.owner].recv += parseFloat(r.money_recv||0);
   });
-  const ownerList = Object.entries(ownerMap).sort((a,b) => b[1].total - a[1].total).slice(0,6);
+  const ownerList = Object.entries(ownerMap).sort((a,b) => b[1].total - a[1].total);
   const maxTotal = ownerList[0]?.[1]?.total || 1;
 
-  el.innerHTML = `
-    <div class="db-kpi-row">
-      <div class="db-kpi blue">
-        <div class="db-kpi-icon">📁</div>
-        <div class="db-kpi-label">คดีทั้งหมด</div>
-        <div class="db-kpi-value">${s.total}</div>
-        <div class="db-kpi-sub">มีทรัพย์สิน ${s.has_asset} คดี</div>
-      </div>
-      <div class="db-kpi gold">
-        <div class="db-kpi-icon">💰</div>
-        <div class="db-kpi-label">ยอดฟ้องรวม</div>
-        <div class="db-kpi-value">${(claimed/1e6).toFixed(2)}M</div>
-        <div class="db-kpi-sub">฿${claimed.toLocaleString('th-TH',{maximumFractionDigits:0})}</div>
-      </div>
-      <div class="db-kpi green">
-        <div class="db-kpi-icon">📈</div>
-        <div class="db-kpi-label">Recovery Rate</div>
-        <div class="db-kpi-value">${s.recovery_rate}%</div>
-        <div class="db-kpi-sub">ได้รับ ฿${(recv/1e3).toFixed(0)}K จากทั้งหมด</div>
-      </div>
-      <div class="db-kpi red">
-        <div class="db-kpi-icon">🚨</div>
-        <div class="db-kpi-label">เกิน Due Date</div>
-        <div class="db-kpi-value">${s.overdue}</div>
-        <div class="db-kpi-sub">Done แล้ว ${s.done_count} คดี</div>
-      </div>
-    </div>
+  const fmtAmt = v => { const n=parseFloat(v)||0; return n>=1e6?`${(n/1e6).toFixed(2)}M`:n>=1e3?`${(n/1e3).toFixed(0)}K`:`${n.toFixed(0)}`; };
+  const daysLeft = due => { const d=Math.round((new Date(due)-now)/864e5); return d===0?'วันนี้':d<0?`${Math.abs(d)}วันที่แล้ว`:`ใน ${d} วัน`; };
 
-    <div class="db-charts-row">
-      <div class="db-chart-box">
-        <div class="db-chart-title">📊 คดีแยกตามหมวด</div>
-        <canvas id="chartStage" height="180"></canvas>
+  const actionItem = (r, showDue=true) => `
+    <div class="db-action-item" onclick="openModal('${escHtml(r.id)}')">
+      <div class="db-ai-body">
+        <div class="db-ai-id">${escHtml(r.id)} <span style="color:var(--text2)">${escHtml(r.owner||'')}</span></div>
+        <div class="db-ai-action">${escHtml(r.action||'— ไม่ระบุ Action')}</div>
       </div>
-      <div class="db-chart-box">
-        <div class="db-chart-title">🎯 ผลการอายัดทรัพย์</div>
-        <canvas id="chartResult" height="180"></canvas>
-      </div>
-    </div>
-
-    <div class="db-bottom-row">
-      <div class="db-list-box">
-        <div class="db-list-title">🚨 คดีเกิน Due Date (ยอดสูง)</div>
-        ${urgentCases.length ? urgentCases.map(r=>`
-          <div class="db-list-item" onclick="openModal('${escHtml(r.id)}')">
-            <span class="db-list-id">${escHtml(r.id)}</span>
-            <span class="db-list-action">${escHtml(r.action||'—')}</span>
-            ${dueBadge(r.due_date)}
-            <span class="db-list-amt">฿${(parseFloat(r.amount||0)/1e3).toFixed(0)}K</span>
-          </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:10px 0">✅ ไม่มีคดีเกิน Due Date</div>'}
-      </div>
-      <div class="db-list-box">
-        <div class="db-list-title">📋 Workload รายคน</div>
-        ${ownerList.map(([name,d])=>`
-          <div class="db-owner-row">
-            <span class="db-owner-name">${escHtml(name)}</span>
-            <div class="db-owner-bar-wrap">
-              <div class="db-owner-bar" style="width:${Math.round(d.total/maxTotal*100)}%;background:linear-gradient(90deg,var(--accent),var(--purple))"></div>
-            </div>
-            <span class="db-owner-num">${d.total}</span>
-          </div>`).join('')}
+      <div class="db-ai-right">
+        <div class="db-ai-amt">฿${fmtAmt(r.amount)}</div>
+        ${showDue && r.due_date ? `<div class="db-ai-due">${daysLeft(r.due_date)}</div>` : ''}
       </div>
     </div>`;
 
-  // Destroy old charts
+  const emptyMsg = txt => `<div class="db-empty">✅ ${txt}</div>`;
+
+  // ── Render HTML ────────────────────────────────────────────────────────────
+  el.innerHTML = `
+    <!-- ░░ SECTION 1: ภาพรวมองค์กร ░░ -->
+    <div class="db-section">
+      <div class="db-section-title">🏢 ภาพรวมองค์กร</div>
+      <div class="db-kpi-row">
+        <div class="db-kpi blue">
+          <div class="db-kpi-icon">📁</div>
+          <div class="db-kpi-label">คดีทั้งหมด</div>
+          <div class="db-kpi-value">${s.total}</div>
+          <div class="db-kpi-sub">พบทรัพย์ ${s.has_asset} คดี</div>
+        </div>
+        <div class="db-kpi gold">
+          <div class="db-kpi-icon">💰</div>
+          <div class="db-kpi-label">ยอดฟ้องรวม</div>
+          <div class="db-kpi-value">${fmtAmt(claimed)}</div>
+          <div class="db-kpi-sub">฿${claimed.toLocaleString('th-TH',{maximumFractionDigits:0})}</div>
+        </div>
+        <div class="db-kpi green">
+          <div class="db-kpi-icon">💵</div>
+          <div class="db-kpi-label">เงินที่ได้รับ</div>
+          <div class="db-kpi-value">${fmtAmt(recv)}</div>
+          <div class="db-kpi-sub">Recovery ${s.recovery_rate}%</div>
+        </div>
+        <div class="db-kpi purple">
+          <div class="db-kpi-icon">✅</div>
+          <div class="db-kpi-label">ปิดแล้ว</div>
+          <div class="db-kpi-value">${s.done_count}</div>
+          <div class="db-kpi-sub">ได้เงิน ${s.got_money} คดี</div>
+        </div>
+        <div class="db-kpi red">
+          <div class="db-kpi-icon">🚨</div>
+          <div class="db-kpi-label">เกิน Due Date</div>
+          <div class="db-kpi-value">${s.overdue}</div>
+          <div class="db-kpi-sub">ต้องดำเนินการด่วน</div>
+        </div>
+      </div>
+
+      <div class="db-mid-row">
+        <div class="db-chart-box">
+          <div class="db-chart-title">📊 คดีแยกตามหมวด</div>
+          <canvas id="chartStage" height="160"></canvas>
+        </div>
+        <div class="db-chart-box">
+          <div class="db-chart-title">👥 Workload รายคน</div>
+          <table class="db-owner-table">
+            <thead><tr>
+              <th>ชื่อ</th><th>คดี</th>
+              <th class="db-bar-cell">สัดส่วน</th>
+              <th>Overdue</th><th>ได้รับ</th>
+            </tr></thead>
+            <tbody>
+              ${ownerList.map(([name,d])=>`
+                <tr style="cursor:pointer" onclick="filterByOwner('${escHtml(name)}')">
+                  <td><strong>${escHtml(name)}</strong></td>
+                  <td style="font-family:var(--mono)">${d.total}</td>
+                  <td class="db-bar-cell">
+                    <div class="db-bar-wrap">
+                      <div class="db-bar" style="width:${Math.round(d.total/maxTotal*100)}%;background:linear-gradient(90deg,var(--accent),var(--purple))"></div>
+                    </div>
+                  </td>
+                  <td style="color:${d.overdue>0?'var(--red2)':'var(--text3)'};font-family:var(--mono)">${d.overdue>0?d.overdue:'—'}</td>
+                  <td style="color:var(--gold2);font-family:var(--mono)">${fmtAmt(d.recv)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ░░ SECTION 2: Action Required ░░ -->
+    <div class="db-section">
+      <div class="db-section-title">⚡ Action Required</div>
+      <div class="db-action-row">
+        <div class="db-action-col col-red">
+          <div class="db-action-header">
+            <span class="db-action-title">🔴 เกิน Due Date</span>
+            <span class="db-action-count">${overdueCases.length}</span>
+          </div>
+          ${overdueCases.length ? overdueCases.slice(0,8).map(r=>actionItem(r,true)).join('') : emptyMsg('ไม่มีคดีเกิน Due Date')}
+          ${overdueCases.length>8?`<div style="font-size:11px;color:var(--text3);padding:6px 0;text-align:center">+${overdueCases.length-8} รายการ</div>`:''}
+        </div>
+        <div class="db-action-col col-orange">
+          <div class="db-action-header">
+            <span class="db-action-title">🟡 Due ใน 7 วัน</span>
+            <span class="db-action-count">${dueSoonCases.length}</span>
+          </div>
+          ${dueSoonCases.length ? dueSoonCases.slice(0,8).map(r=>actionItem(r,true)).join('') : emptyMsg('ไม่มีคดี Due ใน 7 วัน')}
+          ${dueSoonCases.length>8?`<div style="font-size:11px;color:var(--text3);padding:6px 0;text-align:center">+${dueSoonCases.length-8} รายการ</div>`:''}
+        </div>
+        <div class="db-action-col col-blue">
+          <div class="db-action-header">
+            <span class="db-action-title">🔵 High Priority ค้างอยู่</span>
+            <span class="db-action-count">${ALL.filter(r=>r.action_status!=='done'&&calcPriorityTag(r)==='high').length}</span>
+          </div>
+          ${highPendingCases.length ? highPendingCases.map(r=>actionItem(r,false)).join('') : emptyMsg('ไม่มีคดี High Priority ค้างอยู่')}
+        </div>
+      </div>
+    </div>`;
+
+  // ── Charts ─────────────────────────────────────────────────────────────────
   if (_chartStage) { _chartStage.destroy(); _chartStage = null; }
   if (_chartResult) { _chartResult.destroy(); _chartResult = null; }
 
-  // Bar chart — by stage
   const stageLabels = ['สืบทรัพย์','เตรียมบังคับ','บังคับคดี','ประนอมหนี้','ปิดงาน'];
   const stageData   = Object.values(stageCounts);
   const stageColors = ['rgba(99,102,241,.8)','rgba(245,158,11,.8)','rgba(59,130,246,.8)','rgba(16,185,129,.8)','rgba(107,114,128,.8)'];
@@ -702,21 +784,6 @@ async function renderDashboard(statsArg) {
       scales: {
         x: { ticks: { color: '#8fa3cc', font: { family: 'IBM Plex Sans Thai' } }, grid: { color: 'rgba(30,45,80,.5)' } },
         y: { ticks: { color: '#8fa3cc', precision: 0 }, grid: { color: 'rgba(30,45,80,.5)' } }
-      }
-    }
-  });
-
-  // Donut chart — result
-  const resLabels = ['ได้เงิน','ไม่ได้เงิน','รอผล','ไม่ระบุ'];
-  const resData   = Object.values(resultCounts);
-  const resColors = ['rgba(16,185,129,.85)','rgba(239,68,68,.85)','rgba(245,158,11,.85)','rgba(100,116,139,.5)'];
-  _chartResult = new Chart(document.getElementById('chartResult'), {
-    type: 'doughnut',
-    data: { labels: resLabels, datasets: [{ data: resData, backgroundColor: resColors, borderWidth: 2, borderColor: '#0f1629' }] },
-    options: {
-      cutout: '62%',
-      plugins: {
-        legend: { position: 'bottom', labels: { color: '#8fa3cc', font: { family: 'IBM Plex Sans Thai' }, padding: 14 } }
       }
     }
   });
