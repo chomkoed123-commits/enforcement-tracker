@@ -994,12 +994,13 @@ function openModal(id) {
       </div>
     </div>`;
   document.getElementById('modalOverlay').classList.add('open');
-  loadModalNotes(id);
-  loadCaseTimeline(id);
+  loadModalNotes(eid);
+  loadCaseTimeline(eid);
 }
 
 function switchModalTab(btn, tabId) {
   const modal = btn.closest('.modal');
+  if (!modal) return;
   modal.querySelectorAll('.modal-tab').forEach(t=>t.classList.remove('active'));
   modal.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   btn.classList.add('active');
@@ -1143,7 +1144,7 @@ function openEditModal(id) {
   const owners = [...new Set(ALL.map(x=>x.owner).filter(Boolean))].sort();
   const ownerOpts = owners.map(o=>`<option value="${escHtml(o)}" ${r.owner===o?'selected':''}>${escHtml(o)}</option>`).join('');
   const invOpts = ['ยังไม่สืบ','พบ','ไม่พบ'].map(v=>`<option value="${v}">`+v+'</option>').join('');
-  const prioTagOpts=['low','medium','high','critical'].map(v=>`<option value="${v}" ${(r.priority_tag||'low')===v?'selected':''}>${v}</option>`).join('');
+  const prioTagOpts=['low','medium','high'].map(v=>`<option value="${v}" ${(r.priority_tag||'low')===v?'selected':''}>${v}</option>`).join('');
   document.getElementById('modalContent').innerHTML=`
     <div class="modal-header">
       <div><div style="font-family:var(--mono);font-size:11px;color:var(--text3)">✏️ แก้ไขเคส</div><div style="font-size:15px;font-weight:700;margin-top:2px">${eid}</div></div>
